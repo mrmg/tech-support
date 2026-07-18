@@ -6,6 +6,7 @@
 #include "bn_fixed.h"
 #include "bn_fixed_point.h"
 #include "bn_fixed_rect.h"
+#include "bn_optional.h"
 #include "bn_span.h"
 #include "bn_sprite_ptr.h"
 
@@ -21,6 +22,15 @@ constexpr bn::fixed solid_height = 28;
 // Slightly larger than the solid so the player can stand beside the desk.
 constexpr bn::fixed interact_width = 56;
 constexpr bn::fixed interact_height = 44;
+
+// I-02: type badge floats just above the desk sprite.
+constexpr bn::fixed type_badge_y_offset = 22;
+
+// ticket_badge.bmp frames (match ticket::type order).
+constexpr int badge_reboot = 0;
+constexpr int badge_toner = 1;
+constexpr int badge_psu = 2;
+constexpr int badge_server = 3;
 
 enum class visual_state
 {
@@ -72,6 +82,13 @@ public:
     [[nodiscard]] bool is_broken() const;
     [[nodiscard]] visual_state state() const;
 
+    // I-02: show/hide type badge above the desk (graphics_index = badge_* frame).
+    void set_type_badge(int graphics_index);
+    void clear_type_badge();
+
+    // Desk PC + type badge (office floor hide when in server room).
+    void set_visible(bool visible);
+
     // Advances broken-PC error flash while the desk is broken.
     void update();
 
@@ -88,10 +105,15 @@ private:
     visual_state _state;
     int _urgency;
     int _flash_frame;
+    int _badge_tiles;
+    bool _visible;
     bn::sprite_ptr _sprite;
+    bn::optional<bn::sprite_ptr> _badge;
 
     [[nodiscard]] int _flash_period() const;
     void _sync_sprite();
+    void _sync_badge();
+    [[nodiscard]] bn::fixed_point _badge_position() const;
 };
 
 // Nearest desk index to point, or -1 if none.

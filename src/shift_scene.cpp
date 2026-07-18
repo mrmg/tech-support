@@ -107,7 +107,31 @@ constexpr bn::color danger_hud_colors[] = {
     bn::color(0, 0, 0),
 };
 
+// I-06 timer heat: amber under 30s; red (blink) under 10s.
+constexpr bn::color timer_amber_colors[] = {
+    bn::color(0, 31, 0),
+    bn::color(31, 22, 4),
+    bn::color(28, 18, 2),
+    bn::color(24, 14, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+};
+
+constexpr int timer_blink_half_period = 8;
+
 constexpr bn::sprite_palette_item danger_hud_palette_item(danger_hud_colors, bn::bpp_mode::BPP_4);
+constexpr bn::sprite_palette_item timer_amber_palette_item(timer_amber_colors, bn::bpp_mode::BPP_4);
+constexpr bn::sprite_palette_item timer_red_palette_item(danger_hud_colors, bn::bpp_mode::BPP_4);
 
 void draw_day_hud(bn::sprite_text_generator& text_generator, bn::ivector<bn::sprite_ptr>& day_sprites)
 {
@@ -122,9 +146,29 @@ void draw_day_hud(bn::sprite_text_generator& text_generator, bn::ivector<bn::spr
 }
 
 void redraw_timer_hud(bn::sprite_text_generator& text_generator, bn::ivector<bn::sprite_ptr>& timer_sprites,
-                      int remaining_seconds)
+                      int remaining_seconds, bool blink_on)
 {
     timer_sprites.clear();
+
+    // I-06: under 10s, alternate visible red digits with empty (blink).
+    if(remaining_seconds < 10 && ! blink_on)
+    {
+        return;
+    }
+
+    if(remaining_seconds < 10)
+    {
+        text_generator.set_palette_item(timer_red_palette_item);
+    }
+    else if(remaining_seconds < 30)
+    {
+        text_generator.set_palette_item(timer_amber_palette_item);
+    }
+    else
+    {
+        text_generator.set_palette_item(common::variable_8x16_sprite_font.item().palette_item());
+    }
+
     text_generator.set_center_alignment();
     text_generator.generate(timer_hud_x, timer_hud_y, format_mm_ss(remaining_seconds), timer_sprites);
 }
@@ -224,10 +268,30 @@ void set_main_floor_entities_visible(bn::vector<desk::entity, desk::count>& desk
 {
     for(desk::entity& desk_entity : desks)
     {
-        desk_entity.sprite().set_visible(visible);
+        desk_entity.set_visible(visible);
     }
 
     storage_closet.sprite().set_visible(visible);
+}
+
+// I-02: map open ticket kind → ticket_badge frame (server-reset still badges the desk).
+[[nodiscard]] int type_badge_tiles(ticket::type issue)
+{
+    switch(issue)
+    {
+    case ticket::type::needs_toner:
+        return desk::badge_toner;
+
+    case ticket::type::needs_psu:
+        return desk::badge_psu;
+
+    case ticket::type::needs_server_reset:
+        return desk::badge_server;
+
+    case ticket::type::reboot:
+    default:
+        return desk::badge_reboot;
+    }
 }
 
 // E-01/E-02: instant room swap — BG + solids; closet office-only; rack server-only.
@@ -275,8 +339,9 @@ shift_summary play_one_shift()
     rack.set_camera(camera);
     rack.set_visible(false);
 
-    // D-02: one carried part (closet A pick/replace, B return; HUD icon).
+    // D-02/I-04: one carried part (closet A pick/replace, B return; icon follows player).
     carry::slot carried;
+    carried.set_camera(camera);
 
     // C-03: day index selects spawn + shift length (Day 1 == Phase A baseline).
     const campaign::day_difficulty day = campaign::difficulty_for_day(campaign::current_day());
@@ -304,6 +369,7 @@ shift_summary play_one_shift()
 
     int remaining_frames = day.shift_duration_seconds * shift::frames_per_second;
     int shown_seconds = -1;
+    bool shown_timer_blink_on = true;
 
     bn::size map_dims = room::map_dimensions(current_room);
     update_camera_follow(camera, walk_player.position(), map_dims);
@@ -343,12 +409,16 @@ shift_summary play_one_shift()
 
             if(current_room == room::id::office)
             {
+                // I-06: same interact range as carry pickup.
+                storage_closet.set_in_range(storage_closet.in_interact_range(walk_player.position()));
                 // Closet pickup before hold-to-fix so A pressed at cupboard fills carry.
                 carried.update_at_closet(walk_player.position(), storage_closet);
-                reboot_fix.update(walk_player.position(), tickets, carried, camera);
+                reboot_fix.update(walk_player.position(), tickets, carried, camera,
+                                   bn::span<desk::entity>(desks.data(), desks.size()));
             }
             else
             {
+                storage_closet.set_in_range(false);
                 reboot_fix.reset();
                 // E-02/E-03: hold-A at rack → green LEDs; completing clears open reset-server tickets.
                 const bool rack_was_done = rack.server_reset_done();
@@ -370,12 +440,24 @@ shift_summary play_one_shift()
             --remaining_frames;
         }
 
-        carried.update_hud();
+        carried.update_follow(walk_player.position());
 
         for(int index = 0; index < desk::count; ++index)
         {
-            desks[index].set_broken(tickets.desk_has_open_ticket(index));
+            const bool open = tickets.desk_has_open_ticket(index);
+            desks[index].set_broken(open);
             desks[index].set_urgency(tickets.urgency_for_desk(index));
+
+            // Type bubble above the desk while the ticket is open (incl. server-reset).
+            if(open)
+            {
+                desks[index].set_type_badge(type_badge_tiles(tickets.issue_type_for_desk(index)));
+            }
+            else
+            {
+                desks[index].clear_type_badge();
+            }
+
             desks[index].update();
         }
 
@@ -386,11 +468,16 @@ shift_summary play_one_shift()
 
         const int remaining_seconds =
             (remaining_frames + shift::frames_per_second - 1) / shift::frames_per_second;
+        const bool timer_blink_on = ((remaining_frames / timer_blink_half_period) % 2) == 0;
+        const bool timer_needs_redraw =
+            remaining_seconds != shown_seconds ||
+            (remaining_seconds < 10 && timer_blink_on != shown_timer_blink_on);
 
-        if(remaining_seconds != shown_seconds)
+        if(timer_needs_redraw)
         {
             shown_seconds = remaining_seconds;
-            redraw_timer_hud(hud_text, timer_sprites, remaining_seconds);
+            shown_timer_blink_on = timer_blink_on;
+            redraw_timer_hud(hud_text, timer_sprites, remaining_seconds, timer_blink_on);
         }
 
         bn::core::update();

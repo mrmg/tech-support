@@ -94,6 +94,9 @@ namespace spawn
             min_interval_sec * shift::frames_per_second,
         };
     }
+
+    // Advance shared bn::random once (call from title / day-intro waits for entropy).
+    void tick_rng();
 }
 
 // Max one open ticket per desk.
@@ -163,7 +166,10 @@ private:
     int _fixed_count;
     bool _classified;
 
-    [[nodiscard]] int _find_free_desk() const;
+    // Uniform pick among desks with no open ticket; -1 if none free.
+    [[nodiscard]] int _pick_free_desk();
+    // Weighted pick from the allowed issue mix (not a fixed cycle).
+    [[nodiscard]] type _pick_issue_type();
     void _schedule_next_spawn();
     void _try_spawn();
     void _advance_urgency();

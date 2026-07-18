@@ -1,9 +1,34 @@
 #include "ticket.h"
 
+#include "bn_random.h"
+
 #include "sfx.h"
 
 namespace ticket
 {
+
+namespace
+{
+
+// Shared across shifts so desk/issue rolls are not reset to the same sequence each day.
+// Seeded by Butano defaults; title/day-intro tick_rng() mixes in wait-frame entropy.
+bn::random& spawn_rng()
+{
+    static bn::random rng;
+    return rng;
+}
+
+}
+
+namespace spawn
+{
+
+void tick_rng()
+{
+    spawn_rng().update();
+}
+
+}
 
 bn::string_view issue_label(type issue_type)
 {
@@ -290,17 +315,59 @@ void spawner::_advance_urgency()
     }
 }
 
-int spawner::_find_free_desk() const
+int spawner::_pick_free_desk()
 {
+    int free_desks[desk::count];
+    int free_count = 0;
+
     for(int desk_id = 0; desk_id < desk::count; ++desk_id)
     {
         if(! desk_has_open_ticket(desk_id))
         {
-            return desk_id;
+            free_desks[free_count] = desk_id;
+            ++free_count;
         }
     }
 
-    return -1;
+    if(free_count <= 0)
+    {
+        return -1;
+    }
+
+    return free_desks[spawn_rng().get_unbiased_int(free_count)];
+}
+
+type spawner::_pick_issue_type()
+{
+    // Same proportions as the old 5-cycle (reboot×2, toner, server, PSU) — weighted, not sequenced.
+    constexpr int weight_reboot = 2;
+    constexpr int weight_toner = 1;
+    constexpr int weight_server = 1;
+    constexpr int weight_psu = 1;
+    constexpr int weight_total = weight_reboot + weight_toner + weight_server + weight_psu;
+
+    int roll = spawn_rng().get_unbiased_int(weight_total);
+
+    if(roll < weight_reboot)
+    {
+        return type::reboot;
+    }
+
+    roll -= weight_reboot;
+
+    if(roll < weight_toner)
+    {
+        return type::needs_toner;
+    }
+
+    roll -= weight_toner;
+
+    if(roll < weight_server)
+    {
+        return type::needs_server_reset;
+    }
+
+    return type::needs_psu;
 }
 
 void spawner::_schedule_next_spawn()
@@ -332,7 +399,7 @@ void spawner::_try_spawn()
         return;
     }
 
-    const int desk_id = _find_free_desk();
+    const int desk_id = _pick_free_desk();
 
     if(desk_id < 0)
     {
@@ -340,15 +407,7 @@ void spawner::_try_spawn()
         return;
     }
 
-    // Mix reboot, needs-part, and cross-room server reset (D-03 / E-03).
-    constexpr type spawn_kinds[] = {
-        type::reboot,
-        type::needs_toner,
-        type::needs_server_reset,
-        type::reboot,
-        type::needs_psu,
-    };
-    const type issue_type = spawn_kinds[_spawned_count % 5];
+    const type issue_type = _pick_issue_type();
 
     _open.push_back(instance{desk_id, issue_type, urgency::initial_level, true});
     _urgency_frames.push_back(0);

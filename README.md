@@ -31,6 +31,8 @@ Game Boy Advance office tech-support game — real-time fix-and-fetch chaos, bui
 
 **Phase H complete** — juice & ship (H-01…H-05). Placeholder music bed + key SFX; credits from title (**START**) and after Day 5 pass; difficulty defaults documented below; remaining jank in [`docs/known-issues.md`](docs/known-issues.md). **Real GBA untested** (mGBA only). Tickets: `docs/phases/phase-H.md`.
 
+**Phase I complete** — fun polish (I-01…I-07). Random free desks + weighted issue mix; in-world type badges above open tickets; 4-frame walk cycle with facing and `move_speed` 1.5; carried parts bob above the player; wrong-part deny + fix pop; timer amber/red heat and closet in-range highlight. Tickets: `docs/phases/phase-I.md`.
+
 ### Difficulty defaults (H-04)
 
 Tunables live in headers / `campaign.cpp` — no new systems. Final ship defaults:
@@ -120,7 +122,7 @@ make clean   # remove build/ and the ROM
 
 1. **Title** — **A** starts / continues the session day; **START** opens credits; **SELECT** resets to Day 1 (anger + inventory wiped).
 2. **Day intro** — “Day N”; **A** (or Start) begins the shift. A short music bed plays on title and during the shift.
-3. **Shift (120s)** — Walk the office and server room. Tickets spawn over time (reboot / toner / PSU / reset server). **Select** opens the notepad (pauses). Fetch parts from the closet; hold **A** at desks or the server rack to clear matching tickets. Edge icons point at desks, the rack, or the door when the fix is off-screen.
+3. **Shift (120s)** — Walk the office and server room (snappier walk cycle; face left/right). Tickets spawn on random free desks with a mixed issue mix; open desks show a type badge (reboot / toner / PSU / server). **Select** opens the notepad (pauses). Fetch parts from the closet (icon follows you); hold **A** at desks or the server rack to clear matching tickets (wrong part flashes deny). Timer heats amber then red near the end. Edge icons point at desks, the rack, or the door when the fix is off-screen.
 4. **Results** — At **0:00**, see OK/X per ticket, completion %, anger, and pass/fail (≥75%). **A** continues (retry same day or next day); **B** returns to title (day kept unless sacked).
 5. **Shop** (mid-campaign pass only) — Spend IT budget on toner/PSU; **B** leaves. Orders arrive the next day.
 6. **Sacked** — Anger at **100** after results → **SACKED** → title Day 1.
@@ -128,15 +130,19 @@ make clean   # remove build/ and the ROM
 
 Full controls below. Leftovers and hardware notes: [`docs/known-issues.md`](docs/known-issues.md).
 
-## Controls (Phase A–H)
+## Controls (Phase A–I)
 
 | Input | Action |
 |-------|--------|
-| D-pad | Move (walk into door zones to change rooms); shop: Up/Down select item |
-| A | Closet: pick up / swap part; desk: hold to reboot or install (needs matching part); server rack: hold to reset; shop: buy; confirm title & day intro / results / sacked / credits continue |
+| D-pad | Move (walk cycle + face left/right; door zones change rooms); shop: Up/Down select item |
+| A | Closet: pick up / swap part; desk: hold to reboot or install (needs matching part; wrong part = red deny); server rack: hold to reset; shop: buy; confirm title & day intro / results / sacked / credits continue |
 | B | Closet: return carried part; shop: leave; results: return to title (session day kept; at sack → continue to SACKED); sacked / credits: back |
 | Select | Toggle notepad during shift (pauses timer, spawns, urgency); on title = **new game** (Day 1) |
 | Start | Title: **credits**; secondary confirm on day intro / credits dismiss |
+
+### Fun polish (Phase I)
+
+Desks and issue types are random (not a fixed top-left / fixed cycle). Type badges float above open tickets. Carried toner/PSU rides above the player. Last 30s the timer goes amber; under 10s it blinks red. Closet brightens when you are in pickup range.
 
 ### Audio (Phase H)
 

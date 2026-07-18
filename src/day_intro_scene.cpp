@@ -11,6 +11,7 @@
 
 #include "campaign.h"
 #include "common_variable_8x16_sprite_font.h"
+#include "ticket.h"
 
 void run_day_intro_scene()
 {
@@ -30,17 +31,20 @@ void run_day_intro_scene()
     // Wait for release so title/results A does not instantly dismiss the intro.
     while(bn::keypad::a_held() || bn::keypad::start_held())
     {
+        ticket::spawn::tick_rng();
         bn::core::update();
     }
 
     while(! bn::keypad::a_pressed() && ! bn::keypad::start_pressed())
     {
+        ticket::spawn::tick_rng();
         bn::core::update();
     }
 
     // Drain held confirm so shift hold-to-reboot does not start on the same press.
     while(bn::keypad::a_held() || bn::keypad::start_held())
     {
+        ticket::spawn::tick_rng();
         bn::core::update();
     }
 }

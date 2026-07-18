@@ -15,6 +15,7 @@
 #include "inventory.h"
 #include "music.h"
 #include "reputation.h"
+#include "ticket.h"
 
 namespace
 {
@@ -66,6 +67,8 @@ void run_title_scene()
             redraw_title(text_generator, text_sprites);
         }
 
+        // Mix entropy into spawn RNG from how long the player waits on title.
+        ticket::spawn::tick_rng();
         bn::core::update();
     }
 }

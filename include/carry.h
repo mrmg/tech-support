@@ -1,6 +1,7 @@
 #ifndef CARRY_H
 #define CARRY_H
 
+#include "bn_camera_ptr.h"
 #include "bn_fixed_point.h"
 #include "bn_optional.h"
 #include "bn_sprite_ptr.h"
@@ -55,18 +56,23 @@ public:
     void clear();
     void set(part value);
 
+    // Attach icon to the shift camera so it scrolls with the player.
+    void set_camera(const bn::camera_ptr& camera);
+
     // Closet A/B pickup while player is in interact range. No-op when notepad is open
-    // (caller should skip). Updates HUD icon visibility/frame.
+    // (caller should skip). Updates part icon visibility/frame.
     void update_at_closet(const bn::fixed_point& player_pos, const closet::entity& storage);
 
-    // Keep HUD icon on screen (screen-space, no camera).
-    void update_hud();
+    // I-04: held part icon follows player (above head, slight bob). Call each frame.
+    void update_follow(const bn::fixed_point& player_pos);
 
 private:
     part _held;
-    bn::optional<bn::sprite_ptr> _hud_icon;
+    bn::optional<bn::sprite_ptr> _icon;
+    bn::optional<bn::camera_ptr> _camera;
+    int _bob_frame;
 
-    void _sync_hud();
+    void _sync_icon();
 };
 
 }

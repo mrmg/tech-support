@@ -4,6 +4,7 @@
 #include "bn_sprite_tiles_ptr.h"
 
 #include "bn_sprite_items_desk.h"
+#include "bn_sprite_items_ticket_badge.h"
 
 namespace desk
 {
@@ -24,6 +25,7 @@ constexpr int broken_flash_tiles_index = 2;
 constexpr int flash_period_base = 20;
 constexpr int flash_period_min = 6;
 constexpr int flash_period_urgency_step = 1;
+constexpr int no_badge_tiles = -1;
 
 }
 
@@ -42,6 +44,8 @@ entity::entity(int index) :
     _state(visual_state::idle),
     _urgency(0),
     _flash_frame(0),
+    _badge_tiles(no_badge_tiles),
+    _visible(true),
     _sprite(bn::sprite_items::desk.create_sprite(definition_table[index].center))
 {
     BN_ASSERT(index >= 0 && index < count, "desk index out of range");
@@ -51,6 +55,11 @@ entity::entity(int index) :
 void entity::set_camera(const bn::camera_ptr& camera)
 {
     _sprite.set_camera(camera);
+
+    if(_badge)
+    {
+        _badge->set_camera(camera);
+    }
 }
 
 void entity::set_broken(bool broken)
@@ -83,6 +92,44 @@ void entity::set_urgency(int urgency_level)
     }
 
     _urgency = urgency_level;
+}
+
+void entity::set_type_badge(int graphics_index)
+{
+    BN_ASSERT(graphics_index >= badge_reboot && graphics_index <= badge_server,
+              "badge graphics_index out of range");
+
+    if(_badge_tiles == graphics_index)
+    {
+        _sync_badge();
+        return;
+    }
+
+    _badge_tiles = graphics_index;
+    _sync_badge();
+}
+
+void entity::clear_type_badge()
+{
+    if(_badge_tiles == no_badge_tiles)
+    {
+        return;
+    }
+
+    _badge_tiles = no_badge_tiles;
+    _sync_badge();
+}
+
+void entity::set_visible(bool visible)
+{
+    if(_visible == visible)
+    {
+        return;
+    }
+
+    _visible = visible;
+    _sprite.set_visible(visible);
+    _sync_badge();
 }
 
 bool entity::is_broken() const
@@ -170,6 +217,49 @@ void entity::_sync_sprite()
     }
 
     _sprite.set_tiles(bn::sprite_items::desk.tiles_item().create_tiles(tiles_index));
+}
+
+bn::fixed_point entity::_badge_position() const
+{
+    const bn::fixed_point center = definition_table[_index].center;
+    return bn::fixed_point(center.x(), center.y() - type_badge_y_offset);
+}
+
+void entity::_sync_badge()
+{
+    const bool show = _visible && _badge_tiles != no_badge_tiles;
+
+    if(! show)
+    {
+        if(_badge)
+        {
+            _badge->set_visible(false);
+        }
+
+        return;
+    }
+
+    const bn::fixed_point pos = _badge_position();
+
+    if(! _badge)
+    {
+        bn::sprite_ptr badge = bn::sprite_items::ticket_badge.create_sprite(pos, _badge_tiles);
+        badge.set_bg_priority(_sprite.bg_priority());
+        badge.set_z_order(-5);
+
+        if(const bn::optional<bn::camera_ptr> camera = _sprite.camera())
+        {
+            badge.set_camera(*camera);
+        }
+
+        _badge = badge;
+    }
+    else
+    {
+        _badge->set_tiles(bn::sprite_items::ticket_badge.tiles_item().create_tiles(_badge_tiles));
+        _badge->set_position(pos);
+        _badge->set_visible(true);
+    }
 }
 
 int nearest_index(const bn::fixed_point& point)

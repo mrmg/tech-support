@@ -43,10 +43,14 @@ public:
     [[nodiscard]] bn::fixed_rect interact() const;
     [[nodiscard]] bool in_interact_range(const bn::fixed_point& point) const;
 
+    // I-06: brighter palette while player stands in interact range (carry pickup zone).
+    void set_in_range(bool in_range);
+
     [[nodiscard]] bn::sprite_ptr& sprite();
 
 private:
     bn::sprite_ptr _sprite;
+    bool _in_range;
 };
 
 }

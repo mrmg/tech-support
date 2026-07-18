@@ -12,10 +12,11 @@ Implementation order for the Tech Support GBA game.
 | F — Stock & budget | [phase-F.md](./phase-F.md) | **Complete** |
 | G — Reputation & sacking | [phase-G.md](./phase-G.md) | **Complete** |
 | H — Juice & ship | [phase-H.md](./phase-H.md) | **Complete** |
+| I — Fun polish | [phase-I.md](./phase-I.md) | **Complete** |
 
 ## Sequencing
 
-**Recommended:** A → B → C → D → E → F → G → H.
+**Recommended:** A → B → C → D → E → F → G → H → I.
 
 **How to work tickets:** [docs/dev-workflow.md](../dev-workflow.md) — one sub-agent per ticket; logical commit after each success.
 
