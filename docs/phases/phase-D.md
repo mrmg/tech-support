@@ -1,6 +1,6 @@
 # Phase D — Carry & parts
 
-**Unlock:** Phase B complete. **May run before Phase C** if campaign is deferred.  
+**Unlock:** Phase B complete (may run before C). **Unlocked** after Phase C.  
 **Does not require Phase E.**
 
 ## Goal

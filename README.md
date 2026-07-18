@@ -16,9 +16,11 @@ Game Boy Advance office tech-support game — real-time fix-and-fetch chaos, bui
 
 **Phase A complete** — office & core loop (A-01…A-13).
 
-**Phase B complete** — shift results (B-01…B-04). At the bell, every spawned ticket is classified fixed/failed; results notepad lists OK/X per ticket, completion % (`fixed / spawned`), and pass/fail vs a **75%** threshold (`shift_results::pass_threshold_percent`). Zero spawns → 100%/pass. Mid-shift: urgency stays visual-only (no fail/removal); Select notepad still pauses; hold-A still clears. **A** retries the shift; **B** returns to title. Tickets: `docs/phases/phase-B.md`.
+**Phase B complete** — shift results (B-01…B-04). At the bell, every spawned ticket is classified fixed/failed; results notepad lists OK/X per ticket, completion % (`fixed / spawned`), and pass/fail vs a **75%** threshold (`shift_results::pass_threshold_percent`). Zero spawns → 100%/pass. Mid-shift: urgency stays visual-only (no fail/removal); Select notepad still pauses; hold-A still clears. Tickets: `docs/phases/phase-B.md`.
 
-**Phase C next** — campaign days. Tickets: `docs/phases/phase-C.md` (expand when starting).
+**Phase C complete** — campaign days (C-01…C-06). Linear **Day 1…5** (`campaign::max_days`); each day is one shift plus retries. HUD shows **Day N** (top-left) separate from the mm:ss timer. Spawn pressure rises via `campaign::day_difficulty` (Day 1 = Phase A baseline; later days tighter gaps; shift length still 120s). Brief **Day N** intro before every shift. Pass (≥75%) advances day (final-day pass → “Campaign complete” then Day 1); fail retries the same day. Title shows the session day; **A** continues without reset; **SELECT** = new game (Day 1). No SRAM — boot resets to Day 1; B→title mid-run keeps the day. Tickets: `docs/phases/phase-C.md`.
+
+**Phase D next** — carry & parts (unlocked). Tickets: `docs/phases/phase-D.md`.
 
 ## Toolchain setup (macOS)
 
@@ -78,16 +80,20 @@ Output ROM: `tech-support.gba` (title `TECHSUPPORT`, code `TS01`).
 make clean   # remove build/ and the ROM
 ```
 
-## Controls (Phase A–B)
+## Controls (Phase A–C)
 
 | Input | Action |
 |-------|--------|
 | D-pad | Move |
-| A | Hold to reboot (in desk range) / confirm title / retry shift (results) |
-| B | Return to title (results) |
-| Select | Toggle notepad (pauses shift timer, spawns, and urgency while open) |
-| Start | Reserved (secondary confirm on title only) |
+| A | Hold to reboot (in desk range) / confirm title & day intro / results continue (retry, next day, or restart) |
+| B | Return to title (results); session day kept |
+| Select | Toggle notepad during shift (pauses timer, spawns, urgency); on title = **new game** (Day 1) |
+| Start | Secondary confirm on title / day intro |
+
+### Campaign days (Phase C)
+
+Boot → title (Day 1) → **A** → Day intro → shift. Pass advances; fail retries the same day. After Day 5 pass: “Campaign complete”, then **A** restarts from Day 1. **B** to title mid-campaign → **A** resumes that day; **SELECT** on title resets to Day 1.
 
 ### Shift results (Phase B)
 
-When the timer hits **0:00**, the results notepad shows each spawned ticket as **OK** (fixed) or **X** (still open at the bell), `F:n O:n xx%`, and pass (“PASS - good enough”) or fail (“Don't come back tomorrow”) vs the 75% bar. Fail is flavour + retry — not campaign sacking.
+When the timer hits **0:00**, the results notepad shows **Day N**, each spawned ticket as **OK** (fixed) or **X** (still open at the bell), `F:n O:n xx%`, and pass (“PASS - good enough”), fail (“Don't come back tomorrow”), or “Campaign complete” vs the 75% bar. Fail is flavour + same-day retry — not Phase G sacking.

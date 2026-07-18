@@ -1,6 +1,6 @@
 # Phase C — Campaign days
 
-**Unlock:** Phase B complete. **Active.**  
+**Unlock:** Phase B complete. **Complete.**  
 **Note:** Required before Phase G.
 
 ## Goal
@@ -57,7 +57,7 @@ Linear **days** (Day 1, Day 2, …). Each day is one **shift** (plus retries). R
 - **Done when:** Day index selects spawn (and optionally shift length) parameters; early days get harder (faster/more spawns or shorter gaps). Constants are data-driven / easy to tweak.
 - **Notes:** Do not break Phase A/B systems — feed params into existing `ticket::spawn::*` (or parallel per-day table). Day 1 can match current baseline; later days tighter.
 - **mGBA:** Day 1 feels like today; jump current_day (debug) or advance and feel denser spawns on later days.
-- **Implemented:** `campaign::day_difficulty` table in `campaign.cpp` (Day 1 = Phase A spawn baseline; days 2–5 tighter gaps). `ticket::spawn::params` + `spawner(params)` feed the curve; `shift_scene` selects via `difficulty_for_day(current_day())` (shift length included, currently 120s all days). Title L/R + `set_day` for playtest jumps.
+- **Implemented:** `campaign::day_difficulty` table in `campaign.cpp` (Day 1 = Phase A spawn baseline; days 2–5 tighter gaps). `ticket::spawn::params` + `spawner(params)` feed the curve; `shift_scene` selects via `difficulty_for_day(current_day())` (shift length included, currently 120s all days). `set_day` helper exists for playtest; title L/R jump not wired (see C-06 jank).
 
 ### - [x] C-04 — Pass advances day / fail retries day
 
@@ -73,8 +73,12 @@ Linear **days** (Day 1, Day 2, …). Each day is one **shift** (plus retries). R
 - **mGBA:** Boot→A→ Day 1 intro→shift; after pass→ Day 2 intro; B to title→A resumes current day.
 - **Implemented:** `day_intro_scene` (“Day N” + Press A) before every shift. Title shows session day; A continues without reset; SELECT = new game (`campaign::reset()`). Boot resets once; B→title keeps day.
 
-### - [ ] C-06 — Phase C pass (integration)
+### - [x] C-06 — Phase C pass (integration)
 
 - **Done when:** All Phase C acceptance criteria verified; C-01…C-05 `- [x]`; README notes campaign days; known jank listed for Phase D.
-- **Notes:** Clean make + code review; note human mGBA path. Confirm Phase B results still work.
+- **Notes:**
+  - **Verification:** C-01…C-05 already `- [x]`. Acceptance criteria (pass unlocks next; fail retries same day; difficulty trends up; Day N HUD ≠ timer) confirmed by code review of `campaign` (`current_day` / `advance` / `reset` / `max_days=5` / `day_difficulty` table), `shift_scene` (Day HUD + timer; `difficulty_for_day` → spawn params; `apply_shift_outcome`; day intro before each shift), `day_intro_scene`, `title_scene` (A continues session day; SELECT = new game), and `notepad::results_overlay` (Day N, OK/X, %, pass/fail/“Campaign complete”, A Retry/Next day/Restart). Phase B path intact: `classify_at_bell` only at 0:00; `shift_results::evaluate` / 75% threshold; zero spawns → 100%/pass; Select pause + hold-A clear unchanged.
+  - **Build:** Clean `DEVKITPRO=/opt/devkitpro DEVKITARM=/opt/devkitpro/devkitARM make clean && make -j…` → `tech-support.gba` (title `TECHSUPPORT` / `TS01`).
+  - **Human mGBA path:** `mgba tech-support.gba` (Homebrew/Nix `mgba` on PATH). No headless/screenshot CLI — interactive click-through needs a human with a display. Optional: temporarily shorten `campaign::day_difficulty::shift_duration_seconds` (or Day-1 row) for faster pass/fail checks, then restore **120**.
+  - **Known jank for Phase D:** title L/R day jump claimed in C-03 notes was never wired (`campaign::set_day` unused — day jumps need a pass or code edit); all days still **120s** (spawn-only difficulty; slow to verify Day 5 / campaign complete); day intro is bare text (“Day N” / Press A); no SRAM (boot always Day 1; mid-campaign resume is session-only); results still **OK/X**, **4-row** cap + `+N more`, integer % truncation; history soft-cap **32**; final-day pass resets to Day 1 as soon as results dismiss (title after complete shows Day 1); SELECT new-game is easy to miss; Phase A/B leftovers remain (placeholder art, no SFX/music, Desk N labels, A overloaded across confirm/hold-reboot/retry/intro, interact AABB vs art, progress bar / edge-icon flicker, notepad snapshot on open, soft urgency, desk-corner slide snags).
 - **mGBA checklist:** Day HUD → rising difficulty → fail stays on day → pass advances → complete after last day → title resume behaviour.
