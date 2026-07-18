@@ -133,8 +133,14 @@ shift_summary play_one_shift()
         desks.back().set_camera(camera);
     }
 
+    // C-03: day index selects spawn + shift length (Day 1 == Phase A baseline).
+    const campaign::day_difficulty day = campaign::difficulty_for_day(campaign::current_day());
+    const ticket::spawn::params spawn_params = ticket::spawn::from_seconds(
+        day.first_spawn_seconds, day.interval_seconds, day.interval_shrink_seconds,
+        day.min_interval_seconds);
+
     // Desks start idle; spawner sets broken when a ticket binds; A-10 hold-to-reboot clears.
-    ticket::spawner tickets;
+    ticket::spawner tickets(spawn_params);
     notepad::overlay tickets_pad;
     world_cues::edge_indicators edge_cues;
     fix_interaction::hold_to_reboot reboot_fix;
@@ -149,7 +155,7 @@ shift_summary play_one_shift()
     bn::vector<bn::sprite_ptr, 8> timer_sprites;
     draw_day_hud(hud_text, day_sprites);
 
-    int remaining_frames = shift::duration_frames;
+    int remaining_frames = day.shift_duration_seconds * shift::frames_per_second;
     int shown_seconds = -1;
 
     const bn::size map_dims = office::map_dimensions();

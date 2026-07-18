@@ -53,6 +53,7 @@ namespace urgency
 }
 
 // Spawn timing (tweakable). No tickets at t=0; first spawn after first_spawn_seconds.
+// Day 1 baseline constants; per-day overrides live in campaign::day_difficulty (C-03).
 namespace spawn
 {
     inline constexpr int first_spawn_seconds = 5;
@@ -67,6 +68,26 @@ namespace spawn
     inline constexpr int interval_frames = interval_seconds * shift::frames_per_second;
     inline constexpr int interval_shrink_frames = interval_shrink_seconds * shift::frames_per_second;
     inline constexpr int min_interval_frames = min_interval_seconds * shift::frames_per_second;
+
+    // Runtime curve fed into spawner (Day 1 == baseline above).
+    struct params
+    {
+        int first_spawn_frames = spawn::first_spawn_frames;
+        int interval_frames = spawn::interval_frames;
+        int interval_shrink_frames = spawn::interval_shrink_frames;
+        int min_interval_frames = spawn::min_interval_frames;
+    };
+
+    [[nodiscard]] inline params from_seconds(int first_spawn_sec, int interval_sec, int shrink_sec,
+                                             int min_interval_sec)
+    {
+        return params{
+            first_spawn_sec * shift::frames_per_second,
+            interval_sec * shift::frames_per_second,
+            shrink_sec * shift::frames_per_second,
+            min_interval_sec * shift::frames_per_second,
+        };
+    }
 }
 
 // Max one open ticket per desk.
@@ -81,7 +102,9 @@ inline constexpr int max_history = 32;
 class spawner
 {
 public:
+    // Default ctor keeps Day 1 / Phase A baseline (spawn::* constants).
     spawner();
+    explicit spawner(const spawn::params& params);
 
     // Advance one shift frame: raise soft urgency on open tickets, then maybe spawn.
     // Does not fail, expire, or remove tickets for urgency (fixes only via clear_desk).
@@ -111,6 +134,7 @@ private:
     // Frames accumulated toward the next urgency step, parallel to _open.
     bn::vector<int, max_open> _urgency_frames;
     bn::vector<history_entry, max_history> _history;
+    spawn::params _params;
     int _frames_until_next_spawn;
     int _spawned_count;
     int _fixed_count;

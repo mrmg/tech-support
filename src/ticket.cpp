@@ -16,7 +16,13 @@ bn::string_view issue_label(type issue_type)
 }
 
 spawner::spawner() :
-    _frames_until_next_spawn(spawn::first_spawn_frames),
+    spawner(spawn::params{})
+{
+}
+
+spawner::spawner(const spawn::params& params) :
+    _params(params),
+    _frames_until_next_spawn(params.first_spawn_frames),
     _spawned_count(0),
     _fixed_count(0),
     _classified(false)
@@ -190,11 +196,11 @@ int spawner::_find_free_desk() const
 void spawner::_schedule_next_spawn()
 {
     // After N spawns, interval = interval - (N-1)*shrink, floored at min.
-    int next_frames = spawn::interval_frames - (_spawned_count - 1) * spawn::interval_shrink_frames;
+    int next_frames = _params.interval_frames - (_spawned_count - 1) * _params.interval_shrink_frames;
 
-    if(next_frames < spawn::min_interval_frames)
+    if(next_frames < _params.min_interval_frames)
     {
-        next_frames = spawn::min_interval_frames;
+        next_frames = _params.min_interval_frames;
     }
 
     _frames_until_next_spawn = next_frames;
@@ -205,7 +211,7 @@ void spawner::_try_spawn()
     if(_open.full())
     {
         // All desks busy; keep polling until a slot frees (fix clears in A-10).
-        _frames_until_next_spawn = spawn::min_interval_frames;
+        _frames_until_next_spawn = _params.min_interval_frames;
         return;
     }
 
@@ -220,7 +226,7 @@ void spawner::_try_spawn()
 
     if(desk_id < 0)
     {
-        _frames_until_next_spawn = spawn::min_interval_frames;
+        _frames_until_next_spawn = _params.min_interval_frames;
         return;
     }
 

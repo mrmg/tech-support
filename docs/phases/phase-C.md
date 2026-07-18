@@ -52,11 +52,12 @@ Linear **days** (Day 1, Day 2, …). Each day is one **shift** (plus retries). R
 - **mGBA:** title→A→ see Day 1 (or current) + timer both visible.
 - **Implemented:** Shift HUD draws **Day N** top-left from `campaign::current_day()` in its own sprite vector; mm:ss stays top-center and redraws independently (no shared clear / layout collision).
 
-### - [ ] C-03 — Per-day difficulty parameters
+### - [x] C-03 — Per-day difficulty parameters
 
 - **Done when:** Day index selects spawn (and optionally shift length) parameters; early days get harder (faster/more spawns or shorter gaps). Constants are data-driven / easy to tweak.
 - **Notes:** Do not break Phase A/B systems — feed params into existing `ticket::spawn::*` (or parallel per-day table). Day 1 can match current baseline; later days tighter.
 - **mGBA:** Day 1 feels like today; jump current_day (debug) or advance and feel denser spawns on later days.
+- **Implemented:** `campaign::day_difficulty` table in `campaign.cpp` (Day 1 = Phase A spawn baseline; days 2–5 tighter gaps). `ticket::spawn::params` + `spawner(params)` feed the curve; `shift_scene` selects via `difficulty_for_day(current_day())` (shift length included, currently 120s all days). Title L/R + `set_day` for playtest jumps.
 
 ### - [ ] C-04 — Pass advances day / fail retries day
 
