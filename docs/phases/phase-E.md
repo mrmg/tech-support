@@ -1,6 +1,6 @@
 # Phase E — Multi-room office
 
-**Unlock:** Phase D complete.  
+**Unlock:** Phase D complete. **Active.**  
 **Does not require Phase F.**
 
 ## Goal

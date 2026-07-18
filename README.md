@@ -20,7 +20,9 @@ Game Boy Advance office tech-support game — real-time fix-and-fetch chaos, bui
 
 **Phase C complete** — campaign days (C-01…C-06). Linear **Day 1…5** (`campaign::max_days`); each day is one shift plus retries. HUD shows **Day N** (top-left) separate from the mm:ss timer. Spawn pressure rises via `campaign::day_difficulty` (Day 1 = Phase A baseline; later days tighter gaps; shift length still 120s). Brief **Day N** intro before every shift. Pass (≥75%) advances day (final-day pass → “Campaign complete” then Day 1); fail retries the same day. Title shows the session day; **A** continues without reset; **SELECT** = new game (Day 1). No SRAM — boot resets to Day 1; B→title mid-run keeps the day. Tickets: `docs/phases/phase-C.md`.
 
-**Phase D next** — carry & parts (unlocked). Tickets: `docs/phases/phase-D.md`.
+**Phase D complete** — carry & parts (D-01…D-05). Same-map **storage closet** (aisle cupboard); **one** carried part (toner / PSU). At closet: **A** pick up or **replace**-swap toner↔PSU; **B** return part. HUD `part_icon` bottom-right. Spawner mixes `reboot` / `needs_toner` / `needs_psu`; notepad shows the issue line. Needs-part: hold-A at desk only progresses with the matching part, then consumes carry; reboot hold-A unchanged. Infinite closet stock (Phase F will add ordering). Tickets: `docs/phases/phase-D.md`.
+
+**Phase E next** — multi-room office (unlocked). Tickets: `docs/phases/phase-E.md`.
 
 ## Toolchain setup (macOS)
 
@@ -80,15 +82,19 @@ Output ROM: `tech-support.gba` (title `TECHSUPPORT`, code `TS01`).
 make clean   # remove build/ and the ROM
 ```
 
-## Controls (Phase A–C)
+## Controls (Phase A–D)
 
 | Input | Action |
 |-------|--------|
 | D-pad | Move |
-| A | Hold to reboot (in desk range) / confirm title & day intro / results continue (retry, next day, or restart) |
-| B | Return to title (results); session day kept |
+| A | Closet: pick up / swap part; desk: hold to reboot or install (needs matching part); confirm title & day intro / results continue |
+| B | Closet: return carried part; results: return to title (session day kept) |
 | Select | Toggle notepad during shift (pauses timer, spawns, urgency); on title = **new game** (Day 1) |
 | Start | Secondary confirm on title / day intro |
+
+### Carry & parts (Phase D)
+
+Walk to the aisle cupboard. **A** takes toner when empty, or swaps toner↔PSU when holding. **B** clears the slot. Needs-toner / needs-PSU tickets block hold-A until the matching part is carried; success clears the ticket and empties carry. Reboot tickets still clear with hold-A alone.
 
 ### Campaign days (Phase C)
 
