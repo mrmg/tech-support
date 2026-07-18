@@ -11,6 +11,8 @@
 #include "campaign.h"
 #include "common_variable_8x16_sprite_font.h"
 #include "desk.h"
+#include "reputation.h"
+#include "sfx.h"
 #include "shift_results.h"
 
 namespace notepad
@@ -39,7 +41,28 @@ constexpr bn::color ink_colors[] = {
     bn::color(0, 0, 0),
 };
 
+// G-02: red ink for anger / "HR is watching" when near sack.
+constexpr bn::color danger_ink_colors[] = {
+    bn::color(0, 31, 0),
+    bn::color(28, 4, 4),
+    bn::color(24, 2, 2),
+    bn::color(20, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+};
+
 constexpr bn::sprite_palette_item ink_palette_item(ink_colors, bn::bpp_mode::BPP_4);
+constexpr bn::sprite_palette_item danger_ink_palette_item(danger_ink_colors, bn::bpp_mode::BPP_4);
 
 constexpr bn::array<bn::string_view, desk::count> desk_labels = {
     "Desk 1",
@@ -113,6 +136,7 @@ void overlay::set_open(bool open)
 
     if(_open)
     {
+        sfx::play_ui_open();
         _show();
     }
     else
@@ -231,9 +255,15 @@ bn::string<24> format_aggregate_header(int fixed_count, int still_open_count, in
     return text;
 }
 
-// ASCII-only pass/fail flavour (font may lack special glyphs). Fail is retry flavour, not sacking.
-[[nodiscard]] bn::string_view status_message(bool passed, bool campaign_complete)
+// ASCII-only pass/fail flavour (font may lack special glyphs).
+// Fail below sack = retry flavour; at_sack_threshold → sacked after dismiss (G-03).
+[[nodiscard]] bn::string_view status_message(bool passed, bool campaign_complete, bool sacked)
 {
+    if(sacked)
+    {
+        return "Anger maxed out";
+    }
+
     if(campaign_complete)
     {
         return "Campaign complete";
@@ -247,9 +277,14 @@ bn::string<24> format_aggregate_header(int fixed_count, int still_open_count, in
     return "Don't come back tomorrow";
 }
 
-// A: fail → retry same day; pass → next day; final-day pass → restart from Day 1.
-[[nodiscard]] bn::string_view a_prompt(bool passed, bool campaign_complete)
+// A: fail → retry; pass → next day; final pass → restart; sacked → continue to game over.
+[[nodiscard]] bn::string_view a_prompt(bool passed, bool campaign_complete, bool sacked)
 {
+    if(sacked)
+    {
+        return "A: Continue";
+    }
+
     if(campaign_complete)
     {
         return "A: Restart";
@@ -287,6 +322,8 @@ void results_overlay::_draw(bn::span<const ticket::history_entry> history, int f
     // Day shown is the shift just played (advance/reset happen after this screen).
     const shift_results::evaluation eval = shift_results::evaluate(fixed_count, still_open_count);
     const bool campaign_complete = eval.passed && campaign::current_day() >= campaign::max_days;
+    // G-03: results still show day stats; sacked game over comes after dismiss.
+    const bool sacked = reputation::at_sack_threshold();
 
     // Same ruled panel as mid-shift notepad; outcome column replaces urgency.
     constexpr bn::fixed left_x = 20;
@@ -302,12 +339,27 @@ void results_overlay::_draw(bn::span<const ticket::history_entry> history, int f
     day_header.append("Day ");
     day_header.append(bn::to_string<2>(campaign::current_day()));
 
+    // G-01: persistent anger after apply_shift_reputation (fail worsens; strong pass may ease).
+    // G-02: red anger + "HR is watching" when near_sack (anger >= warning_threshold).
+    const bool danger = reputation::near_sack();
+    bn::string<16> anger_line;
+    anger_line.append("Anger ");
+    anger_line.append(bn::to_string<3>(reputation::anger()));
+    anger_line.append('/');
+    anger_line.append(bn::to_string<3>(reputation::sack_threshold));
+
     _text_generator.set_left_alignment();
+    _text_generator.set_palette_item(ink_palette_item);
     _text_generator.generate(left_x, header_y, day_header, _text_sprites);
+    _text_generator.set_right_alignment();
+    _text_generator.set_palette_item(danger ? danger_ink_palette_item : ink_palette_item);
+    _text_generator.generate(mark_x, header_y, anger_line, _text_sprites);
+    _text_generator.set_palette_item(ink_palette_item);
+    _text_generator.set_left_alignment();
     _text_generator.generate(left_x, aggregate_y,
                              format_aggregate_header(fixed_count, still_open_count, eval.completion_percent),
                              _text_sprites);
-    _text_generator.generate(left_x, status_y, status_message(eval.passed, campaign_complete),
+    _text_generator.generate(left_x, status_y, status_message(eval.passed, campaign_complete, sacked),
                              _text_sprites);
 
     const int history_count = history.size();
@@ -350,10 +402,20 @@ void results_overlay::_draw(bn::span<const ticket::history_entry> history, int f
         _text_generator.generate(left_x, first_row_y, "No tickets", _text_sprites);
     }
 
-    // C-04: A = retry / next day / restart; B = title.
+    // G-02: clear pre-sack warning above the continue prompts (skip when already sacked).
+    if(danger && ! sacked)
+    {
+        _text_generator.set_left_alignment();
+        _text_generator.set_palette_item(danger_ink_palette_item);
+        _text_generator.generate(left_x, prompt_y - 14, "HR is watching", _text_sprites);
+        _text_generator.set_palette_item(ink_palette_item);
+    }
+
+    // C-04: A = retry / next day / restart; B = title. G-03 sacked: either key → game over.
     _text_generator.set_left_alignment();
-    _text_generator.generate(left_x, prompt_y, a_prompt(eval.passed, campaign_complete), _text_sprites);
-    _text_generator.generate(left_x, prompt_y + 12, "B: Title", _text_sprites);
+    _text_generator.generate(left_x, prompt_y, a_prompt(eval.passed, campaign_complete, sacked),
+                             _text_sprites);
+    _text_generator.generate(left_x, prompt_y + 12, sacked ? "B: Continue" : "B: Title", _text_sprites);
 }
 
 }

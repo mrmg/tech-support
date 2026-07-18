@@ -38,8 +38,9 @@ private:
     void _draw_list(bn::span<const ticket::instance> open_tickets);
 };
 
-// End-of-shift results notepad: Day N, OK/X list, completion %, pass/fail/complete copy.
-// Aggregates + % as header; list is the primary UI. RAII show/hide.
+// End-of-shift results notepad: Day N, Anger N/threshold, OK/X list, %, pass/fail/complete.
+// G-02: near_sack → red anger + "HR is watching". Aggregates + % as header; list is primary.
+// RAII show/hide.
 class results_overlay
 {
 public:
