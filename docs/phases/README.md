@@ -8,10 +8,10 @@ Implementation order for the Tech Support GBA game.
 | B — Shift results | [phase-B.md](./phase-B.md) | **Complete** |
 | C — Campaign days | [phase-C.md](./phase-C.md) | **Complete** |
 | D — Carry & parts | [phase-D.md](./phase-D.md) | **Complete** |
-| E — Multi-room office | [phase-E.md](./phase-E.md) | **Active** |
-| F — Stock & budget | [phase-F.md](./phase-F.md) | Planned |
-| G — Reputation & sacking | [phase-G.md](./phase-G.md) | Planned |
-| H — Juice & ship | [phase-H.md](./phase-H.md) | Planned |
+| E — Multi-room office | [phase-E.md](./phase-E.md) | **Complete** |
+| F — Stock & budget | [phase-F.md](./phase-F.md) | **Complete** |
+| G — Reputation & sacking | [phase-G.md](./phase-G.md) | **Complete** |
+| H — Juice & ship | [phase-H.md](./phase-H.md) | **Complete** |
 
 ## Sequencing
 

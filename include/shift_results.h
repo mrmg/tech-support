@@ -5,7 +5,7 @@
 namespace shift_results
 {
 
-// Named configurable pass threshold. Edit here to change the bar (default 75).
+// Named configurable pass threshold. H-04: kept at 75 (good-enough bar, not perfection).
 inline constexpr int pass_threshold_percent = 75;
 
 struct evaluation

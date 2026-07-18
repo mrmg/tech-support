@@ -1,11 +1,13 @@
 #include "shift_scene.h"
 
 #include "bn_bg_palettes.h"
+#include "bn_bpp_mode.h"
 #include "bn_camera_ptr.h"
 #include "bn_color.h"
 #include "bn_core.h"
 #include "bn_keypad.h"
 #include "bn_regular_bg_ptr.h"
+#include "bn_sprite_palette_item.h"
 #include "bn_sprite_ptr.h"
 #include "bn_sprite_text_generator.h"
 #include "bn_string.h"
@@ -16,14 +18,22 @@
 #include "carry.h"
 #include "closet.h"
 #include "common_variable_8x16_sprite_font.h"
+#include "credits_scene.h"
 #include "day_intro_scene.h"
 #include "desk.h"
 #include "fix_interaction.h"
+#include "inventory.h"
+#include "music.h"
 #include "notepad.h"
 #include "player.h"
+#include "reputation.h"
 #include "room.h"
+#include "sacked_scene.h"
+#include "server_rack.h"
+#include "sfx.h"
 #include "shift.h"
 #include "shift_results.h"
+#include "shop_scene.h"
 #include "ticket.h"
 #include "world_cues.h"
 
@@ -73,6 +83,31 @@ constexpr bn::fixed day_hud_x = -112;
 constexpr bn::fixed day_hud_y = -72;
 constexpr bn::fixed timer_hud_x = 0;
 constexpr bn::fixed timer_hud_y = -72;
+// G-02: top-right danger line when near_sack (anger static for the shift).
+constexpr bn::fixed danger_hud_x = 112;
+constexpr bn::fixed danger_hud_y = -72;
+
+// Red HUD ink (font index 0 = transparent key).
+constexpr bn::color danger_hud_colors[] = {
+    bn::color(0, 31, 0),
+    bn::color(28, 4, 4),
+    bn::color(24, 2, 2),
+    bn::color(20, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+    bn::color(0, 0, 0),
+};
+
+constexpr bn::sprite_palette_item danger_hud_palette_item(danger_hud_colors, bn::bpp_mode::BPP_4);
 
 void draw_day_hud(bn::sprite_text_generator& text_generator, bn::ivector<bn::sprite_ptr>& day_sprites)
 {
@@ -94,11 +129,30 @@ void redraw_timer_hud(bn::sprite_text_generator& text_generator, bn::ivector<bn:
     text_generator.generate(timer_hud_x, timer_hud_y, format_mm_ss(remaining_seconds), timer_sprites);
 }
 
+// G-02: red "HR!" when anger already in the danger band entering the shift.
+// Uses a dedicated generator so Day/timer keep the default font palette.
+void draw_danger_hud(bn::ivector<bn::sprite_ptr>& danger_sprites)
+{
+    danger_sprites.clear();
+
+    if(! reputation::near_sack())
+    {
+        return;
+    }
+
+    bn::sprite_text_generator danger_text(common::variable_8x16_sprite_font, danger_hud_palette_item);
+    danger_text.set_bg_priority(0);
+    danger_text.set_right_alignment();
+    danger_text.generate(danger_hud_x, danger_hud_y, "HR!", danger_sprites);
+}
+
 // A = continue (retry / next day / restart); B = title.
 // Results notepad: Day N, OK/X list, %, pass/fail/complete (threshold in shift_results.h).
 shift_end_choice show_shift_over_screen(const shift_summary& summary)
 {
     bn::bg_palettes::set_transparent_color(bn::color(4, 4, 6));
+    music::stop();
+    sfx::play_shift_end();
 
     const bn::span<const ticket::history_entry> history(summary.history.data(), summary.history.size());
     const notepad::results_overlay results(history, summary.fixed_count, summary.still_open_count);
@@ -119,9 +173,28 @@ shift_end_choice show_shift_over_screen(const shift_summary& summary)
     }
 }
 
-// Apply C-04 campaign progression after the results screen for the day just played.
+// F-02: budget earn after Phase B evaluate (75% gate). Runs before shop / advance.
+void apply_shift_budget_earn(const shift_summary& summary)
+{
+    const shift_results::evaluation eval =
+        shift_results::evaluate(summary.fixed_count, summary.still_open_count);
+
+    // Pass grants more than fail; formula in inventory::budget_earn_for_shift.
+    inventory::add_budget(inventory::budget_earn_for_shift(eval.completion_percent, eval.passed));
+}
+
+// G-01: anger update after Phase B evaluate. Runs before results so the notepad shows the new value.
+void apply_shift_reputation(const shift_summary& summary)
+{
+    const shift_results::evaluation eval =
+        shift_results::evaluate(summary.fixed_count, summary.still_open_count);
+
+    reputation::apply_shift_outcome(eval.completion_percent, summary.still_open_count, eval.passed);
+}
+
+// C-04 campaign progression after results (and F-03 shop when shown).
 // Fail: day unchanged. Pass: advance (or reset on final-day complete).
-void apply_shift_outcome(const shift_summary& summary)
+void apply_shift_campaign_progress(const shift_summary& summary)
 {
     const shift_results::evaluation eval =
         shift_results::evaluate(summary.fixed_count, summary.still_open_count);
@@ -133,12 +206,17 @@ void apply_shift_outcome(const shift_summary& summary)
 
     if(campaign::current_day() >= campaign::max_days)
     {
-        // Final-day pass: campaign complete → back to Day 1 for restart / title.
+        // Final-day pass: campaign complete → Day 1 + starting stock/budget/anger.
+        // Shift earn (and any prior shop) is wiped by reset — intentional fresh-run baseline.
         campaign::reset();
+        inventory::reset();
+        reputation::reset();
         return;
     }
 
     campaign::advance();
+    // F-04: shop orders from Day N become closet stock for Day N+1.
+    inventory::deliver_pending();
 }
 
 void set_main_floor_entities_visible(bn::vector<desk::entity, desk::count>& desks,
@@ -152,10 +230,11 @@ void set_main_floor_entities_visible(bn::vector<desk::entity, desk::count>& desk
     storage_closet.sprite().set_visible(visible);
 }
 
-// E-01: instant room swap — BG + solids + main-floor entities; closet stays office-only.
+// E-01/E-02: instant room swap — BG + solids; closet office-only; rack server-only.
 void transition_to_room(room::id destination, bn::regular_bg_ptr& floor_bg, bn::camera_ptr& camera,
                         player& walk_player, bn::vector<desk::entity, desk::count>& desks,
-                        closet::entity& storage_closet, room::id& current_room)
+                        closet::entity& storage_closet, server_rack::entity& rack,
+                        room::id& current_room)
 {
     current_room = destination;
     floor_bg = room::create_background(current_room);
@@ -163,11 +242,14 @@ void transition_to_room(room::id destination, bn::regular_bg_ptr& floor_bg, bn::
     floor_bg.set_camera(camera);
     walk_player.set_position(room::enter_spawn(current_room));
     set_main_floor_entities_visible(desks, storage_closet, current_room == room::id::office);
+    rack.set_visible(current_room == room::id::server);
 }
 
 shift_summary play_one_shift()
 {
     bn::bg_palettes::set_transparent_color(bn::color(4, 4, 6));
+    // H-02: ensure bed is running (title already started it; retry/next day restarts).
+    music::play_bed();
 
     room::id current_room = room::id::office;
     bn::regular_bg_ptr floor_bg = room::create_background(current_room);
@@ -187,6 +269,11 @@ shift_summary play_one_shift()
     // D-01: storage cupboard on main office floor only (hidden while in server room).
     closet::entity storage_closet;
     storage_closet.set_camera(camera);
+
+    // E-02: server rack in server room only (hold-A sets server_reset_done for the shift).
+    server_rack::entity rack;
+    rack.set_camera(camera);
+    rack.set_visible(false);
 
     // D-02: one carried part (closet A pick/replace, B return; HUD icon).
     carry::slot carried;
@@ -208,10 +295,12 @@ shift_summary play_one_shift()
 
     bn::sprite_text_generator hud_text(common::variable_8x16_sprite_font);
     hud_text.set_bg_priority(0);
-    // Screen-fixed HUD: Day N (left) + mm:ss (center). Separate vectors = no layout clash.
+    // Screen-fixed HUD: Day N (left) + mm:ss (center) + G-02 HR! (right when near_sack).
     bn::vector<bn::sprite_ptr, 8> day_sprites;
     bn::vector<bn::sprite_ptr, 8> timer_sprites;
+    bn::vector<bn::sprite_ptr, 8> danger_sprites;
     draw_day_hud(hud_text, day_sprites);
+    draw_danger_hud(danger_sprites);
 
     int remaining_frames = day.shift_duration_seconds * shift::frames_per_second;
     int shown_seconds = -1;
@@ -235,16 +324,17 @@ shift_summary play_one_shift()
         if(tickets_pad.is_open())
         {
             reboot_fix.reset();
+            rack.cancel_hold();
         }
         else
         {
             walk_player.update(room::solid_boxes(current_room));
 
-            // Door zone → other room (instant). Closet / desks only on office floor.
+            // Door zone → other room (instant). Closet / desks office-only; rack server-only.
             if(room::door_zone(current_room).contains(walk_player.position()))
             {
                 transition_to_room(room::other(current_room), floor_bg, camera, walk_player, desks,
-                                   storage_closet, current_room);
+                                   storage_closet, rack, current_room);
                 map_dims = room::map_dimensions(current_room);
                 reboot_fix.reset();
             }
@@ -260,6 +350,21 @@ shift_summary play_one_shift()
             else
             {
                 reboot_fix.reset();
+                // E-02/E-03: hold-A at rack → green LEDs; completing clears open reset-server tickets.
+                const bool rack_was_done = rack.server_reset_done();
+                rack.update(walk_player.position(), camera);
+
+                if(rack.server_reset_done() && ! rack_was_done)
+                {
+                    tickets.clear_server_reset_tickets();
+                    sfx::play_fix_complete();
+                }
+            }
+
+            // If a reset-server ticket spawns after an earlier rack clear, re-arm the rack.
+            if(tickets.has_open_server_reset() && rack.server_reset_done())
+            {
+                rack.reset_shift();
             }
 
             --remaining_frames;
@@ -276,8 +381,8 @@ shift_summary play_one_shift()
 
         update_camera_follow(camera, walk_player.position(), map_dims);
 
-        // Edge issue icons for open tickets whose desks are off camera.
-        edge_cues.update(tickets.open_tickets(), camera, ! tickets_pad.is_open());
+        // Edge issue icons toward actionable target (desk/rack) or the door if other room.
+        edge_cues.update(tickets.open_tickets(), camera, ! tickets_pad.is_open(), current_room);
 
         const int remaining_seconds =
             (remaining_frames + shift::frames_per_second - 1) / shift::frames_per_second;
@@ -317,10 +422,48 @@ void run_shift_scene()
 
         // Scope ends the office so results are a clean screen.
         const shift_summary summary = play_one_shift();
+        // G-01: apply anger before results so "Anger N/100" reflects this shift.
+        apply_shift_reputation(summary);
+        // Results first; G-03 sack check runs on dismiss (not mid-shift).
         const shift_end_choice choice = show_shift_over_screen(summary);
 
-        // Advance/reset after the player leaves results (copy still showed Day N).
-        apply_shift_outcome(summary);
+        // G-03: at sack line after apply → sacked game over (not retry / shop / title-resume).
+        if(reputation::at_sack_threshold())
+        {
+            run_sacked_scene();
+            campaign::reset();
+            inventory::reset();
+            reputation::reset();
+            return;
+        }
+
+        const shift_results::evaluation eval =
+            shift_results::evaluate(summary.fixed_count, summary.still_open_count);
+
+        // Earn first so the shop sees the post-shift budget.
+        apply_shift_budget_earn(summary);
+
+        // F-03: pass + continue → shop before next-day intro. Skip fail / title / final pass
+        // (final-day reset would wipe purchases; title leaves the between-day flow).
+        const bool continue_run = choice == shift_end_choice::retry;
+        const bool mid_campaign_pass =
+            eval.passed && campaign::current_day() < campaign::max_days;
+        const bool campaign_complete =
+            eval.passed && campaign::current_day() >= campaign::max_days;
+
+        if(continue_run && mid_campaign_pass)
+        {
+            run_shop_scene();
+        }
+
+        // H-03: roll credits after a final-day pass (before Day 1 reset / title return).
+        if(campaign_complete)
+        {
+            run_credits_scene();
+        }
+
+        // Advance/reset after results (+ shop / credits). Results copy still showed Day N.
+        apply_shift_campaign_progress(summary);
 
         switch(choice)
         {

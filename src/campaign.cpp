@@ -8,14 +8,16 @@ namespace
 
 int g_current_day = 1;
 
-// Index 0 = Day 1 (Phase A baseline). Later rows: shorter gaps → denser spawns.
+// H-04 playability defaults. Index 0 = Day 1 (matches ticket::spawn::* baseline).
+// Later rows: shorter gaps → denser spawns. All shifts 120s. ≈spawn count is a guide only
+// (desk cap / clears change the real total).
 constexpr day_difficulty day_table[max_days] = {
     // first, interval, shrink, min, shift_duration
-    { 5, 18, 2, 8, 120 }, // Day 1 — current baseline
-    { 4, 15, 2, 7, 120 }, // Day 2
-    { 4, 12, 2, 6, 120 }, // Day 3
-    { 3, 10, 2, 5, 120 }, // Day 4
-    { 3, 8, 1, 4, 120 },  // Day 5
+    { 6, 20, 2, 10, 120 }, // Day 1 — ~9 spawns; learn day (parts + server room)
+    { 5, 16, 2, 8, 120 },  // Day 2 — ~11
+    { 4, 13, 2, 7, 120 },  // Day 3 — ~13
+    { 3, 11, 2, 6, 120 },  // Day 4 — denser mid-late
+    { 3, 9, 1, 5, 120 },   // Day 5 — densest; min gap 5s (not 4) for travel fairness
 };
 
 [[nodiscard]] int clamp_day(int day)
