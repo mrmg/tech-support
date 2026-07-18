@@ -14,9 +14,14 @@ Game Boy Advance office tech-support game — real-time fix-and-fetch chaos, bui
 
 ## Status
 
-**Phase A complete** — office & core loop (A-01…A-13): title → timed shift → tickets → notepad → world cues → hold-to-reboot → soft urgency → shift-end summary + retry.
+**Phase A complete** — office & core loop (A-01…A-13).
 
-**Next:** Phase B (see `docs/phases/`).
+**Phase B active** — shift results (✓/✗ notepad, completion %, 75% pass). Tickets: `docs/phases/phase-B.md`. Loop helper: `.loop-phase-b.sh`.
+
+```bash
+/loop 15m Work the next open Phase B implementation ticket using a fresh sub-agent.
+# (full prompt in docs/dev-workflow.md or .loop-phase-b-prompt.json)
+```
 
 ## Toolchain setup (macOS)
 

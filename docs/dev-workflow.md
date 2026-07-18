@@ -7,7 +7,7 @@ This project is built **phase by phase**. Work is tracked as **checkbox tickets*
 | What | Where |
 |------|--------|
 | Full design | `docs/superpowers/specs/2026-07-18-tech-support-gba-design.md` |
-| Current phase tickets | `docs/phases/phase-A.md` (then B, C, …) |
+| Current phase tickets | `docs/phases/phase-B.md` (A complete; then C, …) |
 | Vision / tone | `docs/game-vision.md` |
 
 Only mark a ticket `- [x]` when its **Done when** criteria are met (ROM builds / behaviour visible in mGBA).
@@ -58,39 +58,43 @@ Long Phase A loops will blow context if the parent chat implements every ticket.
 | **`/loop` (dynamic)** | Agent picks the next wait; good when ticket sizes vary |
 | Avoid **&lt;5m** | Too chatty; builds/sub-agents won’t finish |
 
-### Scaffold note
+### Phase B note (current)
 
-**A-01** (toolchain + Butano scaffold) may need a human for `sudo` / installer GUI. Still use a **sub-agent** for the work; if it hits a password prompt, it should BLOCKED and ask you to run the install command locally.
+Phase A is complete. Active tickets live in `docs/phases/phase-B.md`. Locked rules: classify **only at the bell**; `% = fixed/(fixed+failed)`; pass threshold **75**; fail copy is flavour only (not Phase G sacking).
 
-### Recommended prompt (copy/paste)
+For faster mGBA checks of end screens, temporarily lower `shift::duration_seconds` in `include/shift.h`, then set it back to **120**.
 
-Also stored in `.loop-phase-a-prompt.json` for the shell loop helper:
+### Recommended prompt (copy/paste) — Phase B
+
+Also stored in `.loop-phase-b-prompt.json` for the shell loop helper:
 
 ```text
-/loop 15m Work the next open Phase A implementation ticket using a fresh sub-agent.
+/loop 15m Work the next open Phase B implementation ticket using a fresh sub-agent.
 
 Orchestrator rules (this chat stays thin):
-1. Open docs/phases/phase-A.md and find the first ticket heading that is still "- [ ]" (not "- [x]").
+1. Open docs/phases/phase-B.md and find the first ticket heading that is still "- [ ]" (not "- [x]").
 2. Do NOT implement the ticket in this parent context. Launch exactly one Task subagent (generalPurpose) with a clean, self-contained brief for ONLY that ticket.
-3. Subagent brief must include: ticket id/title/Done when/Notes; repo path; follow the design spec; Sips is art/UX only (no fork); controls A / Select / Start; run make; mark "- [x]" only if Done when met; on blocker leave unchecked and add BLOCKED under Notes; return a short summary.
+3. Subagent brief must include: ticket id/title/Done when/Notes; repo path; follow design spec Phase B rules; never fail tickets mid-shift; % and 75% threshold; A retry / B title; make + mgba; mark "- [x]" only if Done when met; BLOCKED note if stuck; short summary.
 4. Wait for the subagent. Do not start a second ticket.
-5. If subagent succeeded, confirm the checkbox and build; if blocked, stop advancing.
+5. If no open Phase B tickets, report Phase B complete — do not start Phase C unless asked.
 6. End the tick with: ticket id, what changed, build status, next open ticket id.
 7. Keep parent replies short.
 ```
 
 ### Session startup
 
-1. Prefer Butano + devkitARM already installed; if not, A-01’s sub-agent will try and may BLOCKED for sudo.
-2. Skim `phase-A.md` for open tickets.
-3. Keep this chat available so loop ticks and sub-agents can finish.
+1. Butano + devkitARM + `mgba` already available from Phase A.
+2. Skim `phase-B.md` for open tickets.
+3. Prefer **stop** any leftover Phase A loop helper before starting Phase B’s.
+4. Keep this chat available so loop ticks and sub-agents can finish.
 
-### Helper scripts (optional)
+### Helper scripts
 
 | File | Purpose |
 |------|---------|
-| `.loop-phase-a.sh` | Sleeps 15m, prints `AGENT_LOOP_TICK_phase_a` + prompt JSON |
-| `.loop-phase-a-prompt.json` | Prompt payload for the loop |
+| `.loop-phase-b.sh` | Sleeps 15m, prints `AGENT_LOOP_TICK_phase_b` + prompt JSON |
+| `.loop-phase-b-prompt.json` | Phase B prompt payload |
+| `.loop-phase-a.sh` / `.loop-phase-a-prompt.json` | Phase A (complete — do not use for new work) |
 
 Stop with: ask the agent to **stop the loop** (kills the helper PID).
 
@@ -112,6 +116,7 @@ Stop with: ask the agent to **stop the loop** (kills the helper PID).
 
 ## Pairing with git
 
-- Commit when **you** ask.
-- Good grain: one commit per ticket after human glance.
-- Keep checkbox updates with the code when possible.
+- **After each successful loop tick:** the parent creates **one logical commit** for that ticket (code + `phase-*.md` checkbox). Message focuses on why; HEREDOC commit message.
+- Do **not** commit on BLOCKED ticks.
+- Do **not** push unless the user explicitly asks.
+- Good grain: one commit per ticket. Keep checkbox updates with the code.

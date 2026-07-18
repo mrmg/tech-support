@@ -176,7 +176,7 @@ See **`docs/dev-workflow.md`** for the full playbook. Summary:
 - Tickets are `- [ ]` checkboxes under each phase file.
 - Use `/loop` so the **parent** picks the next ticket and launches a **fresh sub-agent** to implement it (parent stays thin).
 - Cadence: **10–15 minutes** per tick (or dynamic), **one ticket → one sub-agent → one tick**.
-- Helper files: `.loop-phase-a.sh` + `.loop-phase-a-prompt.json`.
+- Helper files: `.loop-phase-b.sh` + `.loop-phase-b-prompt.json` (Phase B active; Phase A helpers retained but finished).
 
 ## 10. Out of scope for this spec
 
