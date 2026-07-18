@@ -102,6 +102,13 @@ void hold_to_reboot::update(const bn::fixed_point& player_pos, ticket::spawner& 
         return;
     }
 
+    // D-03: needs-part tickets stay broken until D-04 install; block clear without part.
+    if(ticket::requires_part(tickets.issue_type_for_desk(desk_id)))
+    {
+        reset();
+        return;
+    }
+
     if(desk_id != _active_desk_id)
     {
         _progress_frames = 0;

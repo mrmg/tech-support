@@ -48,18 +48,6 @@ constexpr bn::array<bn::string_view, desk::count> desk_labels = {
     "Desk 4",
 };
 
-[[nodiscard]] bn::string_view issue_line(ticket::type issue_type)
-{
-    switch(issue_type)
-    {
-    case ticket::type::reboot:
-        return "reboot";
-
-    default:
-        return "?";
-    }
-}
-
 [[nodiscard]] bn::string_view desk_label(int desk_id)
 {
     if(desk_id < 0 || desk_id >= desk::count)
@@ -190,7 +178,7 @@ void overlay::_draw_list(bn::span<const ticket::instance> open_tickets)
         bn::string<24> left_line;
         left_line.append(desk_label(entry.desk_id));
         left_line.append(' ');
-        left_line.append(issue_line(entry.issue_type));
+        left_line.append(ticket::issue_label(entry.issue_type));
 
         _text_generator.set_left_alignment();
         _text_generator.generate(left_x, y, left_line, _text_sprites);
@@ -334,7 +322,7 @@ void results_overlay::_draw(bn::span<const ticket::history_entry> history, int f
         bn::string<24> left_line;
         left_line.append(desk_label(entry.desk_id));
         left_line.append(' ');
-        left_line.append(issue_line(entry.issue_type));
+        left_line.append(ticket::issue_label(entry.issue_type));
 
         _text_generator.set_left_alignment();
         _text_generator.generate(left_x, y, left_line, _text_sprites);

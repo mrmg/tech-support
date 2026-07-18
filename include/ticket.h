@@ -5,16 +5,20 @@
 #include "bn_string_view.h"
 #include "bn_vector.h"
 
+#include "carry.h"
 #include "desk.h"
 #include "shift.h"
 
-// Ticket model + spawn curve for the shift (Phase A: reboot only).
+// Ticket model + spawn curve (reboot + needs-part kinds for Phase D).
 namespace ticket
 {
 
+// Data-driven issue kinds. needs_* require the matching carry::part (install = D-04).
 enum class type
 {
     reboot,
+    needs_toner,
+    needs_psu,
 };
 
 // End-of-shift classification only (Phase B). pending until the bell; never mid-shift fail.
@@ -99,6 +103,12 @@ inline constexpr int max_history = 32;
 // Short issue line for notepad / results (shared label for a ticket type).
 [[nodiscard]] bn::string_view issue_label(type issue_type);
 
+// True for needs_toner / needs_psu (hold-to-install is D-04).
+[[nodiscard]] bool requires_part(type issue_type);
+
+// Part required to clear a needs-* ticket; carry::part::none for reboot.
+[[nodiscard]] carry::part required_part(type issue_type);
+
 class spawner
 {
 public:
@@ -116,6 +126,8 @@ public:
     [[nodiscard]] int fixed_count() const;
     [[nodiscard]] int spawned_count() const;
     [[nodiscard]] bool desk_has_open_ticket(int desk_id) const;
+    // Issue kind of the open ticket on desk_id, or reboot if none.
+    [[nodiscard]] type issue_type_for_desk(int desk_id) const;
     // Urgency of the open ticket on desk_id, or 0 if none.
     [[nodiscard]] int urgency_for_desk(int desk_id) const;
 

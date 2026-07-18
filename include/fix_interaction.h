@@ -10,6 +10,7 @@
 #include "ticket.h"
 
 // Hold-A-in-range reboot: progress fills only while A is held and player stays in range.
+// Needs-part tickets: no progress until D-04 (correct carried part).
 namespace fix_interaction
 {
 

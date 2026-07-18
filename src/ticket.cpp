@@ -10,8 +10,48 @@ bn::string_view issue_label(type issue_type)
     case type::reboot:
         return "reboot";
 
+    case type::needs_toner:
+        return "needs toner";
+
+    case type::needs_psu:
+        return "needs PSU";
+
     default:
         return "?";
+    }
+}
+
+bool requires_part(type issue_type)
+{
+    switch(issue_type)
+    {
+    case type::needs_toner:
+    case type::needs_psu:
+        return true;
+
+    case type::reboot:
+        return false;
+
+    default:
+        return false;
+    }
+}
+
+carry::part required_part(type issue_type)
+{
+    switch(issue_type)
+    {
+    case type::needs_toner:
+        return carry::part::toner;
+
+    case type::needs_psu:
+        return carry::part::psu;
+
+    case type::reboot:
+        return carry::part::none;
+
+    default:
+        return carry::part::none;
     }
 }
 
@@ -82,6 +122,19 @@ bool spawner::desk_has_open_ticket(int desk_id) const
     }
 
     return false;
+}
+
+type spawner::issue_type_for_desk(int desk_id) const
+{
+    for(const instance& entry : _open)
+    {
+        if(entry.open && entry.desk_id == desk_id)
+        {
+            return entry.issue_type;
+        }
+    }
+
+    return type::reboot;
 }
 
 int spawner::urgency_for_desk(int desk_id) const
@@ -230,7 +283,15 @@ void spawner::_try_spawn()
         return;
     }
 
-    const type issue_type = type::reboot;
+    // Mix reboot and needs-part (toner / PSU) across the shift (D-03).
+    constexpr type spawn_kinds[] = {
+        type::reboot,
+        type::needs_toner,
+        type::reboot,
+        type::needs_psu,
+    };
+    const type issue_type = spawn_kinds[_spawned_count % 4];
+
     _open.push_back(instance{desk_id, issue_type, urgency::initial_level, true});
     _urgency_frames.push_back(0);
     _history.push_back(history_entry{desk_id, issue_type, outcome::pending});

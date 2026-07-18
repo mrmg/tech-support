@@ -40,10 +40,10 @@ One carried item at a time. **Same-map storage closet** (cupboard on the office 
 - **Notes:** Infinite stock at closet for Phase D. **Pickup rule: replace** — A in closet range: empty → toner; already holding → swap toner ↔ PSU (never two slots). B in closet range returns the part (clears carry). HUD: `part_icon` bottom-right.
 - **mGBA:** Pick up part; see carry indicator; cannot hold two different parts at once.
 
-### - [ ] D-03 — Needs-part ticket type
+### - [x] D-03 — Needs-part ticket type
 
 - **Done when:** Spawner can create reboot tickets and needs-part tickets (at least toner); notepad shows the required part; desk broken state still used.
-- **Notes:** Mix both types during a shift. Data-driven ticket kind enum.
+- **Notes:** Mix both types during a shift. Data-driven ticket kind enum (`reboot` / `needs_toner` / `needs_psu`). Hold-A on needs-part is blocked until D-04 (no clear without part).
 - **mGBA:** See a “needs toner” (or PSU) ticket in notepad.
 
 ### - [ ] D-04 — Hold-to-install with correct part
