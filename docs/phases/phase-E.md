@@ -1,8 +1,11 @@
 # Phase E — Multi-room office
 
+**Unlock:** Phase D complete (carry model exists), and preferably Phase C if office growth is tied to campaign days.  
+**Does not require Phase F.**
+
 ## Goal
 
-Expand space: server room, printer area, larger floor. Off-screen cues work across rooms. Campaign (or milestones) can move you to a bigger office.
+Expand space into **separate rooms**: server room, printer area, larger floor. Off-screen cues work across room transitions. Campaign (or milestones) can move you to a bigger office/site.
 
 ## In scope
 
@@ -14,13 +17,14 @@ Expand space: server room, printer area, larger floor. Off-screen cues work acro
 ## Out of scope
 
 - Budget ordering (Phase F)
+- Replacing Phase D’s same-map closet (closet may remain; E adds rooms)
 
 ## Acceptance criteria
 
 - [ ] At least two rooms reachable in one shift
 - [ ] Tickets can require another room
-- [ ] Player never loses track of off-screen issues unfairly
+- [ ] Off-screen cues remain fair across rooms
 
 ## Tickets
 
-_To be expanded when Phase D foundations exist._
+_Expand when unlocked. Keep ticket headings as `### - [ ] E-xx — …`._

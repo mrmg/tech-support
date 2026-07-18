@@ -1,6 +1,6 @@
 # Dev workflow — tickets + Cursor `/loop`
 
-This project is built **phase by phase**. Work is tracked as checkboxes in `docs/phases/phase-*.md`. Cursor’s **`/loop`** is the best in-chat way to grind those tickets without re-explaining context every time.
+This project is built **phase by phase**. Work is tracked as **checkbox tickets** in `docs/phases/phase-*.md`. Cursor’s **`/loop`** is the best in-chat way to grind those tickets without re-explaining context every time.
 
 ## Source of truth
 
@@ -10,7 +10,22 @@ This project is built **phase by phase**. Work is tracked as checkboxes in `docs
 | Current phase tickets | `docs/phases/phase-A.md` (then B, C, …) |
 | Vision / tone | `docs/game-vision.md` |
 
-Only mark a ticket `[x]` when its **Done when** criteria are met (ROM builds / behaviour visible in mGBA).
+Only mark a ticket `- [x]` when its **Done when** criteria are met (ROM builds / behaviour visible in mGBA).
+
+## Ticket checkbox format
+
+```markdown
+### - [ ] A-03 — Short title
+
+- **Done when:** emulator-checkable criteria
+- **Notes:** optional
+```
+
+Completed:
+
+```markdown
+### - [x] A-03 — Short title
+```
 
 ## Optimal `/loop` pattern
 
@@ -29,22 +44,29 @@ Only mark a ticket `[x]` when its **Done when** criteria are met (ROM builds / b
 
 **One ticket per tick.** Do not ask the loop to “finish all of Phase A” in one go — that burns context and skips verification.
 
+### Scaffold first, then loop
+
+1. Complete **A-01** (Butano scaffold) in a **normal chat** — toolchain setup is a poor fit for a timed loop.
+2. Confirm `make` produces a `.gba` that runs in mGBA.
+3. Start `/loop` from the first remaining open ticket (usually **A-02**).
+
 ### Recommended prompt (copy/paste)
 
-Use this after Phase A tickets exist and the Butano project is scaffolded:
+Use **after A-01 is done** (or change “A-02” if you intentionally loop a later ticket):
 
 ```text
 /loop 15m Work the next open Phase A implementation ticket.
 
 Rules:
-1. Open docs/phases/phase-A.md and find the first unchecked ticket (- [ ]).
+1. Open docs/phases/phase-A.md and find the first ticket heading that is still "- [ ]" (not "- [x]").
 2. Implement ONLY that ticket. Do not start the next one.
-3. Follow docs/superpowers/specs/2026-07-18-tech-support-gba-design.md and keep Sips as art/UX reference only (do not fork Sips).
-4. Build the ROM (make). Fix compile errors before finishing the tick.
-5. If you can verify in emulator/headless build only, note what a human should click in mGBA under the ticket Notes.
-6. Mark the ticket [x] in phase-A.md only when Done when is satisfied.
-7. If blocked (needs art decision, tooling missing, ambiguous design), stop the loop work for this tick, leave the ticket unchecked, and write a short BLOCKED note under that ticket.
-8. End the tick with: ticket id, what changed, build status, next open ticket id.
+3. Follow docs/superpowers/specs/2026-07-18-tech-support-gba-design.md. Sips is art/UX reference only — do not fork Sips.
+4. Respect locked controls: A = hold-to-fix / confirm; Select = notepad; Start reserved.
+5. Build the ROM (make). Fix compile errors before finishing the tick.
+6. If you can only verify via build (not mGBA), note exact human check steps under that ticket's Notes.
+7. Mark the ticket heading "- [x]" only when Done when is satisfied. Do not check acceptance-criteria boxes unless you verified them.
+8. If blocked (tooling missing, ambiguous design), leave the ticket "- [ ]", add a short BLOCKED note under Notes, and stop advancing tickets this tick.
+9. End the tick with: ticket id, what changed, build status, next open ticket id.
 ```
 
 For a later phase, swap `phase-A.md` / “Phase A” for the active phase file.
@@ -52,14 +74,13 @@ For a later phase, swap `phase-A.md` / “Phase A” for the active phase file.
 ### Session startup (before first `/loop`)
 
 1. Confirm Butano + devkitARM are installed and `make` produces a `.gba`.
-2. Skim the active `phase-*.md` — know what’s done.
-3. Run **one ticket manually** in chat if the scaffold is new, then start `/loop` for the rest.
-4. Keep the Agents / chat window available so loop ticks can run.
+2. Skim the active `phase-*.md` — know what’s `- [x]` vs `- [ ]`.
+3. Keep the Agents / chat window available so loop ticks can run.
 
 ### During the loop
 
 - Prefer leaving the machine able to compile (don’t hold exclusive locks on the tree in another half-finished experiment).
-- If a tick only needs a human mGBA check, do that check before the next tick marks related tickets done.
+- If a tick only needs a human mGBA check, do that check before related tickets are marked done.
 - Stop the loop when: phase complete, you’re done for the day, or a **BLOCKED** note needs a design answer.
 
 ### Stopping
@@ -70,9 +91,9 @@ Tell the agent to **stop the loop** (or stop `/loop`). Do not leave a blocked ti
 
 | Approach | Use when |
 |----------|----------|
-| Normal chat (“do ticket A-04”) | Exploratory work, art direction, first scaffold |
-| Cloud / background agent | You want progress on a branch while AFK; give it 1–3 ticket IDs max |
-| Cursor Automations | Recurring schedule (e.g. daily “next open ticket”) outside an interactive session |
+| Normal chat (“do ticket A-04”) | Exploratory work, art direction, **A-01 scaffold**, first-time toolchain |
+| Cloud / background agent | Progress on a branch while AFK; give it 1–3 ticket IDs max |
+| Cursor Automations | Recurring schedule outside an interactive session |
 | Multi-ticket PR by hand | Refactors that touch many tickets at once (update checkboxes after) |
 
 ## Definition of a good tick

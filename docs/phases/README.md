@@ -1,6 +1,6 @@
 # Phases
 
-Implementation order. Only one phase is “active” at a time; later phases stay stubs until the previous phase’s acceptance criteria are met.
+Implementation order for the Tech Support GBA game.
 
 | Phase | Doc | Status |
 |-------|-----|--------|
@@ -13,6 +13,20 @@ Implementation order. Only one phase is “active” at a time; later phases sta
 | G — Reputation & sacking | [phase-G.md](./phase-G.md) | Planned |
 | H — Juice & ship | [phase-H.md](./phase-H.md) | Planned |
 
-**How to work tickets:** see [docs/dev-workflow.md](../dev-workflow.md) (`/loop` playbook).
+## Sequencing
 
+**Recommended:** A → B → C → D → E → F → G → H.
+
+**Allowed exceptions** (also in the design spec):
+
+| Exception | Rule |
+|-----------|------|
+| D before C | Carry & parts may follow B if campaign (C) is deferred |
+| F without E | Stock & budget may follow D if economy only needs the same-map closet |
+| G requires C | Sacking needs multi-day campaign |
+| E needs carry | Multi-room fetch jobs need Phase D carry (or a minimal stub) |
+
+Do not start a phase’s tickets until its **Unlock** line in that phase file is satisfied.
+
+**How to work tickets:** [docs/dev-workflow.md](../dev-workflow.md) (`/loop` playbook).  
 **Design source:** [docs/superpowers/specs/2026-07-18-tech-support-gba-design.md](../superpowers/specs/2026-07-18-tech-support-gba-design.md)

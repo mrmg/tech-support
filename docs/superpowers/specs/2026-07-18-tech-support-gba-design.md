@@ -1,7 +1,7 @@
 # Tech Support (GBA) — Design Spec
 
 **Date:** 2026-07-18  
-**Status:** Draft for review  
+**Status:** Approved (docs consistency pass)  
 **Platform:** Game Boy Advance (emulator first, real hardware later)  
 **Engine:** Butano (modern C++)
 
@@ -32,24 +32,46 @@ Style inspiration is [foopod/sips](https://github.com/foopod/sips) — a Butano 
 
 Why Butano (July 2026): gbadev’s recommended high-level path; actively maintained; sprites/BGs/text/audio/asset pipeline match this game’s needs; closest to what a small team would pick to ship a GBA game without living in hardware registers.
 
-## 3. Phased roadmap
+## 3. Terminology
+
+| Term | Meaning |
+|------|---------|
+| **Shift** | One timed play session on the office floor (Phase A+). Prefer this word over “day” until the campaign exists. |
+| **Day** | A campaign node (Day 1, Day 2, …) introduced in **Phase C**. Each day is played as one shift (or a retry of that day’s shift). |
+| **Pass / retry (B–C)** | End-of-shift (later: end-of-day) scoregate. Fail → retry that shift/day. Not a run-ending sack. |
+| **Sacked (G)** | Campaign-ending game over from accumulated reputation. Separate system from per-shift pass/retry. |
+
+## 4. Phased roadmap
 
 Each phase is a shippable slice with goals that expand into implementation tickets under `docs/phases/`.
 
 | Phase | Name | Goal |
 |-------|------|------|
 | **A** | Office & core loop (V1) | Walk a small office; tickets spawn over time; notepad + world cues; hold-to-reboot; soft urgency; timed shift |
-| **B** | Shift results | End-of-shift notepad (✓/✗); completion % (e.g. ~75% pass); retry |
+| **B** | Shift results | End-of-shift notepad (✓/✗); completion % pass gate; retry |
 | **C** | Campaign days | Linear Day 1, Day 2…; rising pressure; fail = retry that day |
-| **D** | Carry & parts | One carried item; storage; ticket types needing a part then install |
-| **E** | Multi-room office | Server room / printer / larger floor; office grows or new sites |
+| **D** | Carry & parts | One carried item; same-map storage closet; ticket types needing a part then install |
+| **E** | Multi-room office | Separate rooms (server, printer, larger floor); office grows or new sites |
 | **F** | Stock & budget | Between-day ordering; shortages block fixes |
 | **G** | Reputation & sacking | Cross-day anger; true game-over when sacked |
 | **H** | Juice & ship | Audio, polish, difficulty, title/credits, hardware pass |
 
-**V1 = Phase A only.** No campaign day chain until Phase C. Leftover “ordered parts from yesterday” is Phase F territory.
+**V1 = Phase A only.** No campaign until Phase C. Leftover “ordered parts from yesterday” is Phase F territory.
 
-## 4. Phase A systems (V1)
+### Phase sequencing rules
+
+**Recommended order:** A → B → C → D → E → F → G → H.
+
+Allowed flexibility (explicit exceptions):
+
+- **D before C:** If campaign is deferred, Carry & parts may follow B.
+- **F after D without E:** Economy may land before multi-room if stock only needs the Phase D closet.
+- **G requires C:** Reputation/sacking needs a multi-day campaign to matter.
+- **E assumes D’s carry model** (or a minimal carry stub) so room-to-room fetch jobs work.
+
+`docs/phases/README.md` is the index; each `phase-*.md` states its unlock rule.
+
+## 5. Phase A systems (V1)
 
 ### Office
 
@@ -59,45 +81,70 @@ Each phase is a shippable slice with goals that expand into implementation ticke
 
 ### Shift
 
-- Configurable day length (tweakable constant).
+- Configurable **shift** length (named constant; suggested starting value: **120 seconds** real-time).
 - HUD shows time remaining.
-- Day starts with **no** tickets (unless a later phase adds leftovers).
+- Shift starts with **no** tickets (leftovers are a later phase).
 
 ### Tickets
 
-- Spawn on a schedule/curve during the shift (not all at t=0).
+- Spawn on a schedule/curve during the shift (not all at t=0). Suggested: first spawn after ~5s; then staggered.
 - Fields: desk/person, type (V1: reboot only), patience/urgency.
-- Soft patience: urgency rises (notepad + world cue); **no mid-shift sacking**.
+- Soft patience: urgency rises (notepad + world cue); **no mid-shift fail, expiry, or sacking**. Tickets remain fixable until the shift timer ends.
 
 ### Notepad
 
-- Pull up anywhere (button TBD: Start/Select).
+- Toggle with **Select** (always available during a shift).
 - Ruled notepad list: person/desk, short issue line, urgency.
-- Pause vs soft-pause: prefer fair timing; decide in implementation if open notepad freezes the shift clock.
+- **While the notepad is open, the shift timer and urgency progression pause** (fair reading on GBA). Movement/fix are blocked until closed.
 
 ### World cues
 
 - On-screen: broken PC state (smoke / error flash).
-- Off-screen: edge indicator toward open tickets (icon vs face TBD).
+- Off-screen: edge indicator with a **simple issue icon** (not coworker faces) in Phase A.
 
-### Fixing
+### Fixing (hold-to-reboot)
 
-- In range at desk, **hold** face button: progress bar → ticket clears → PC normal.
-- Must keep holding in range (release/leave cancels or resets progress — still “hold to fix,” not a separate interrupt subsystem).
+- Stand in the desk’s interact range and **hold A**: progress bar fills → ticket clears → PC returns to idle.
+- Progress advances only while **A is held and the player stays in range**.
+- **Releasing A or leaving range resets progress to zero** (not a separate “interruptible channelled cast” system — you are simply no longer performing the hold).
+
+### Controls (Phase A)
+
+| Input | Action |
+|-------|--------|
+| D-pad | Move |
+| **A** | Hold to reboot (in range); confirm on title / shift-end |
+| **Select** | Toggle notepad |
+| **Start** | Reserved (e.g. future pause menu); not notepad |
 
 ### End of Phase A
 
-- Timer hits zero → simple “Shift over — fixed X / Y open” → title/retry.
-- Full ✓/✗ notepad + ~75% pass gate = **Phase B**.
+- Timer hits zero → simple “Shift over — fixed X / still open Y” → title or retry.
+- No ✓/✗ per ticket, no % pass gate yet — that is **Phase B**.
+- Tickets still open at the bell are counted as “still open,” not failed (failure accounting starts in B).
 
-## 5. Documentation layout
+## 6. Phase B rules (locked early to avoid drift)
+
+- During the shift, tickets stay fixable even at max urgency (urgency is a warning).
+- **At shift end only:** every ticket that appeared is either **✓ fixed** or **✗ failed** (still open / not fixed in time).
+- **Completion %** = `(fixed / (fixed + failed)) × 100`.  
+  Equivalent: `fixed / total_tickets_that_spawned` when every ticket is classified ✓ or ✗ at the bell.
+- **Pass threshold** default: **75%**. Configurable named constant.
+- Fail → retry messaging (“don’t come back tomorrow” *flavour* for that shift). This is **not** Phase G sacking.
+
+## 7. Storage vs rooms (D vs E)
+
+- **Phase D:** Storage is a **closet / cupboard zone on the same office map** (walk across the floor, pick up a part).
+- **Phase E:** **Separate rooms** (server room, printer area, larger floor plans, site upgrades). Off-screen cues must work across room transitions.
+
+## 8. Documentation layout
 
 ```
 docs/
   game-vision.md                 # Full dream / tone / references
   dev-workflow.md                # How to develop with Cursor (/loop, tickets)
   phases/
-    README.md                    # Phase index
+    README.md                    # Phase index + sequencing rules
     phase-A.md … phase-H.md      # Scope + acceptance + ticket checklists
   references/                    # Style screenshots
   superpowers/specs/             # This design spec
@@ -105,12 +152,16 @@ docs/
 
 ### Ticket format
 
-Each checklist item:
+Each implementation ticket in `phase-*.md` is a markdown checkbox:
 
-- **ID** — e.g. `A-03`
-- **Title** — one line
-- **Done when** — emulator-checkable acceptance
-- **Notes** — constraints, art deps, tweakables
+```markdown
+### - [ ] A-03 — Title here
+
+- **Done when:** …
+- **Notes:** …
+```
+
+Mark `- [x]` only when **Done when** is satisfied.
 
 ### Code modules (Phase A target shape)
 
@@ -118,26 +169,28 @@ Keep logic out of a single giant `main.cpp`:
 
 - `player`, `office`, `tickets`, `notepad`, `fix_interaction`, `hud`, scenes (`title`, `shift`)
 
-## 6. Cursor `/loop` development workflow
+## 9. Cursor `/loop` development workflow
 
 See **`docs/dev-workflow.md`** for the full playbook. Summary:
 
-- Tickets live as checkboxes in `docs/phases/phase-*.md`.
-- Use `/loop` so the agent repeatedly takes the **next open ticket**, implements it, builds, marks it done, then waits for the next tick.
-- Optimal cadence for GBA/Butano work is roughly **10–15 minutes** per tick (or dynamic mode), **one ticket per tick**.
+- Tickets are `- [ ]` checkboxes under each phase file.
+- Use `/loop` so the agent takes the **next open ticket**, implements it, builds, marks it done, then waits.
+- Cadence: **10–15 minutes** per tick (or dynamic), **one ticket per tick**.
+- Run **A-01** (scaffold) in a normal chat first; start `/loop` from **A-02** (or after A-01 is checked).
 
-## 7. Out of scope for this spec
+## 10. Out of scope for this spec
 
-- Exact art production pipeline beyond “Sips-like + Butano import”
-- Final button mapping, day length, and spawn curve numbers (tunable during Phase A)
-- Music/SFX design (Phase H, light stubs OK earlier)
-- Online features, multiplayer, save format details beyond “needed when campaign exists”
+- Full final art pack (placeholders OK in Phase A)
+- Exact spawn-curve tuning beyond suggested starting constants
+- Music/SFX design (Phase H; light stubs OK earlier)
+- Online features, multiplayer; save format details until campaign (Phase C) needs them
 
-## 8. Success criteria for leaving Phase A
+## 11. Success criteria for leaving Phase A
 
 - Builds a `.gba` ROM with Butano and runs in mGBA.
 - Player can walk a ~4-desk office with collision.
 - Tickets spawn over a timed shift; notepad lists them; world cues point to issues.
-- Hold-to-reboot clears a ticket.
-- Soft urgency visible; shift end shows a simple summary.
-- Phase A ticket checklist in `docs/phases/phase-A.md` is complete.
+- Hold-to-reboot clears a ticket (hold-in-range; release/leave resets progress).
+- Soft urgency visible; no mid-shift ticket failure.
+- Shift end shows fixed vs still-open counts; can restart.
+- All Phase A tickets in `docs/phases/phase-A.md` are `- [x]`.
