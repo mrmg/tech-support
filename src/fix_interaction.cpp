@@ -6,6 +6,8 @@
 #include "bn_sprite_items_progress_bar.h"
 
 #include "desk.h"
+#include "inventory.h"
+#include "sfx.h"
 
 namespace fix_interaction
 {
@@ -24,6 +26,12 @@ constexpr bn::fixed bar_offset_y = -28;
     for(int desk_id = 0; desk_id < desk::count; ++desk_id)
     {
         if(! tickets.desk_has_open_ticket(desk_id))
+        {
+            continue;
+        }
+
+        // Cross-room tickets clear only at the server rack, not via desk hold-A.
+        if(ticket::requires_server_reset(tickets.issue_type_for_desk(desk_id)))
         {
             continue;
         }
@@ -126,9 +134,12 @@ void hold_to_reboot::update(const bn::fixed_point& player_pos, ticket::spawner& 
 
         if(ticket::requires_part(issue))
         {
+            // F-01: install permanently spends one unit of matching stock.
+            inventory::consume(carried.held());
             carried.clear();
         }
 
+        sfx::play_fix_complete();
         reset();
     }
 }

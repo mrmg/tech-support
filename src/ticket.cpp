@@ -1,5 +1,7 @@
 #include "ticket.h"
 
+#include "sfx.h"
+
 namespace ticket
 {
 
@@ -16,8 +18,14 @@ bn::string_view issue_label(type issue_type)
     case type::needs_psu:
         return "needs PSU";
 
+    case type::needs_server_reset:
+        return "reset server";
+
     default:
-        return "?";
+        {
+            // Exhaustive for known kinds; unknown → "?" so notepad never blanks.
+            return "?";
+        }
     }
 }
 
@@ -30,6 +38,7 @@ bool requires_part(type issue_type)
         return true;
 
     case type::reboot:
+    case type::needs_server_reset:
         return false;
 
     default:
@@ -48,10 +57,28 @@ carry::part required_part(type issue_type)
         return carry::part::psu;
 
     case type::reboot:
+    case type::needs_server_reset:
         return carry::part::none;
 
     default:
         return carry::part::none;
+    }
+}
+
+bool requires_server_reset(type issue_type)
+{
+    switch(issue_type)
+    {
+    case type::needs_server_reset:
+        return true;
+
+    case type::reboot:
+    case type::needs_toner:
+    case type::needs_psu:
+        return false;
+
+    default:
+        return false;
     }
 }
 
@@ -175,6 +202,36 @@ void spawner::clear_desk(int desk_id)
     }
 }
 
+void spawner::clear_server_reset_tickets()
+{
+    for(int index = _open.size() - 1; index >= 0; --index)
+    {
+        if(! _open[index].open || _open[index].issue_type != type::needs_server_reset)
+        {
+            continue;
+        }
+
+        const int desk_id = _open[index].desk_id;
+        _mark_history_fixed(desk_id);
+        _open.erase(_open.begin() + index);
+        _urgency_frames.erase(_urgency_frames.begin() + index);
+        ++_fixed_count;
+    }
+}
+
+bool spawner::has_open_server_reset() const
+{
+    for(const instance& entry : _open)
+    {
+        if(entry.open && entry.issue_type == type::needs_server_reset)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void spawner::classify_at_bell()
 {
     if(_classified)
@@ -283,20 +340,22 @@ void spawner::_try_spawn()
         return;
     }
 
-    // Mix reboot and needs-part (toner / PSU) across the shift (D-03).
+    // Mix reboot, needs-part, and cross-room server reset (D-03 / E-03).
     constexpr type spawn_kinds[] = {
         type::reboot,
         type::needs_toner,
+        type::needs_server_reset,
         type::reboot,
         type::needs_psu,
     };
-    const type issue_type = spawn_kinds[_spawned_count % 4];
+    const type issue_type = spawn_kinds[_spawned_count % 5];
 
     _open.push_back(instance{desk_id, issue_type, urgency::initial_level, true});
     _urgency_frames.push_back(0);
     _history.push_back(history_entry{desk_id, issue_type, outcome::pending});
     ++_spawned_count;
     _schedule_next_spawn();
+    sfx::play_ticket_spawn();
 }
 
 }

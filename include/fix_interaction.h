@@ -12,12 +12,14 @@
 
 // Hold-A-in-range fix: progress fills only while A is held and player stays in range.
 // Reboot: no part required. Needs-part: correct carried part required; consumed on complete.
+// needs_server_reset: not clearable here (server-room rack only).
 namespace fix_interaction
 {
 
 namespace reboot
 {
     // Tunable hold duration for reboot and install fixes (shared progress bar).
+    // H-04: kept at 2s — long enough to read, short enough with travel + parts.
     inline constexpr int hold_duration_seconds = 2;
     inline constexpr int hold_duration_frames = hold_duration_seconds * shift::frames_per_second;
 }
@@ -32,7 +34,7 @@ public:
 
     // Advance hold while A is held in a desk interact range with an open ticket.
     // Needs-part: only progresses when carried matches required_part; on complete consumes
-    // the part, clears the ticket, desk idle. Wrong/missing part: no progress.
+    // inventory stock + clears carry, clears the ticket, desk idle. Wrong/missing part: no progress.
     // Reboot: hold-A without a part (unchanged). Release A or leave range resets to zero.
     void update(const bn::fixed_point& player_pos, ticket::spawner& tickets, carry::slot& carried,
                 const bn::camera_ptr& camera);

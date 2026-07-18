@@ -9,16 +9,18 @@
 #include "desk.h"
 #include "shift.h"
 
-// Ticket model + spawn curve (reboot + needs-part kinds for Phase D).
+// Ticket model + spawn curve (reboot, needs-part, cross-room server reset).
 namespace ticket
 {
 
-// Data-driven issue kinds. needs_* require the matching carry::part to install.
+// Data-driven issue kinds. needs_toner/psu require the matching carry::part.
+// needs_server_reset clears only via server-room rack (E-03), not desk hold-A.
 enum class type
 {
     reboot,
     needs_toner,
     needs_psu,
+    needs_server_reset,
 };
 
 // End-of-shift classification only (Phase B). pending until the bell; never mid-shift fail.
@@ -57,16 +59,16 @@ namespace urgency
 }
 
 // Spawn timing (tweakable). No tickets at t=0; first spawn after first_spawn_seconds.
-// Day 1 baseline constants; per-day overrides live in campaign::day_difficulty (C-03).
+// Day 1 baseline (H-04); live shifts use campaign::day_difficulty (C-03 / campaign.cpp).
 namespace spawn
 {
-    inline constexpr int first_spawn_seconds = 5;
+    inline constexpr int first_spawn_seconds = 6;
 
     // Gap after the first ticket; each later spawn shrinks by interval_shrink_seconds
     // down to min_interval_seconds (gentle pressure curve across the shift).
-    inline constexpr int interval_seconds = 18;
+    inline constexpr int interval_seconds = 20;
     inline constexpr int interval_shrink_seconds = 2;
-    inline constexpr int min_interval_seconds = 8;
+    inline constexpr int min_interval_seconds = 10;
 
     inline constexpr int first_spawn_frames = first_spawn_seconds * shift::frames_per_second;
     inline constexpr int interval_frames = interval_seconds * shift::frames_per_second;
@@ -106,8 +108,11 @@ inline constexpr int max_history = 32;
 // True for needs_toner / needs_psu (hold-to-install consumes required_part).
 [[nodiscard]] bool requires_part(type issue_type);
 
-// Part required to clear a needs-* ticket; carry::part::none for reboot.
+// Part required to clear a needs-* ticket; carry::part::none for reboot / server reset.
 [[nodiscard]] carry::part required_part(type issue_type);
+
+// True for needs_server_reset (desk hold-A cannot clear; rack reset can).
+[[nodiscard]] bool requires_server_reset(type issue_type);
 
 class spawner
 {
@@ -137,6 +142,12 @@ public:
 
     // Close/remove the open ticket bound to desk_id (no-op if none). Counts as fixed.
     void clear_desk(int desk_id);
+
+    // Clear every open needs_server_reset ticket (rack complete). Each counts as fixed.
+    void clear_server_reset_tickets();
+
+    // True if any open ticket is needs_server_reset (used to re-arm the rack).
+    [[nodiscard]] bool has_open_server_reset() const;
 
     // Shift timer hit zero: pending → failed; already cleared stay fixed. Call once at the bell.
     void classify_at_bell();

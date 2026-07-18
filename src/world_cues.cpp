@@ -5,6 +5,7 @@
 #include "bn_fixed_point.h"
 
 #include "bn_sprite_items_issue_icon.h"
+#include "server_rack.h"
 
 namespace world_cues
 {
@@ -15,7 +16,7 @@ namespace
 // Keep the 16×16 icon fully inside the screen.
 constexpr bn::fixed edge_pad = 12;
 
-// Desk center must be this far outside the view before an edge cue appears.
+// Target center must be this far outside the view before an edge cue appears.
 constexpr bn::fixed on_screen_margin_x = 28;
 constexpr bn::fixed on_screen_margin_y = 24;
 
@@ -72,7 +73,7 @@ constexpr int flash_urgency_step = 3;
     return value;
 }
 
-[[nodiscard]] bool desk_on_screen(const bn::fixed_point& screen_pos)
+[[nodiscard]] bool target_on_screen(const bn::fixed_point& screen_pos)
 {
     const bn::fixed half_w = bn::display::width() / 2;
     const bn::fixed half_h = bn::display::height() / 2;
@@ -96,6 +97,32 @@ constexpr int flash_urgency_step = 3;
                            clamp_fixed(screen_pos.y(), min_y, max_y));
 }
 
+// Resolve where the edge icon should point for this ticket in the active room.
+// Cross-room tickets cue the door on the current map (no pathfinding).
+[[nodiscard]] bn::fixed_point cue_world_target(const ticket::instance& entry, room::id current_room)
+{
+    const bool needs_rack = ticket::requires_server_reset(entry.issue_type);
+
+    if(needs_rack)
+    {
+        if(current_room == room::id::server)
+        {
+            return server_rack::center;
+        }
+
+        // Office: guide toward the door into the server room.
+        return room::door_zone(room::id::office).position();
+    }
+
+    if(current_room == room::id::office)
+    {
+        return desk::definition_table[entry.desk_id].center;
+    }
+
+    // Server room + office desk ticket: guide back through the return door.
+    return room::door_zone(room::id::server).position();
+}
+
 }
 
 edge_indicators::edge_indicators() :
@@ -108,7 +135,7 @@ edge_indicators::edge_indicators() :
 }
 
 void edge_indicators::update(bn::span<const ticket::instance> open_tickets,
-                             const bn::camera_ptr& camera, bool enabled)
+                             const bn::camera_ptr& camera, bool enabled, room::id current_room)
 {
     bool slot_used[desk::count] = {};
 
@@ -125,10 +152,10 @@ void edge_indicators::update(bn::span<const ticket::instance> open_tickets,
                 continue;
             }
 
-            const bn::fixed_point world = desk::definition_table[entry.desk_id].center;
+            const bn::fixed_point world = cue_world_target(entry, current_room);
             const bn::fixed_point screen(world.x() - camera_pos.x(), world.y() - camera_pos.y());
 
-            if(desk_on_screen(screen))
+            if(target_on_screen(screen))
             {
                 continue;
             }

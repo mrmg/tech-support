@@ -5,6 +5,7 @@
 #include "bn_regular_bg_items_office_bg.h"
 #include "bn_regular_bg_items_server_bg.h"
 #include "office.h"
+#include "server_rack.h"
 
 namespace room
 {
@@ -19,14 +20,14 @@ constexpr bn::fixed_rect server_door(-236, 40, 28, 40);
 constexpr bn::fixed_point office_enter_spawn(210, 40);
 constexpr bn::fixed_point server_enter_spawn(-210, 40);
 
-// Server room: outer walls only (E-02 will add rack interactable).
-// Left wall split around the return door (gap y 20..60).
-constexpr bn::array<bn::fixed_rect, 5> server_solid_list = {
+// Server room: outer walls + rack solid. Left wall split around return door (gap y 20..60).
+constexpr bn::array<bn::fixed_rect, 6> server_solid_list = {
     bn::fixed_rect(0, -96, map_width, 64),
     bn::fixed_rect(0, 124, map_width, 8),
     bn::fixed_rect(-252, -54, 8, 148),
     bn::fixed_rect(-252, 94, 8, 68),
     bn::fixed_rect(252, 0, 8, map_height),
+    server_rack::solid_box(),
 };
 
 }
