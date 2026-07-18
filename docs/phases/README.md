@@ -5,8 +5,8 @@ Implementation order for the Tech Support GBA game.
 | Phase | Doc | Status |
 |-------|-----|--------|
 | A — Office & core loop (V1) | [phase-A.md](./phase-A.md) | **Complete** |
-| B — Shift results | [phase-B.md](./phase-B.md) | **Active** |
-| C — Campaign days | [phase-C.md](./phase-C.md) | Planned |
+| B — Shift results | [phase-B.md](./phase-B.md) | **Complete** |
+| C — Campaign days | [phase-C.md](./phase-C.md) | **Unlocked** (tickets TBD) |
 | D — Carry & parts | [phase-D.md](./phase-D.md) | Planned |
 | E — Multi-room office | [phase-E.md](./phase-E.md) | Planned |
 | F — Stock & budget | [phase-F.md](./phase-F.md) | Planned |
@@ -33,7 +33,7 @@ Do not start a phase’s tickets until its **Unlock** line in that phase file is
 | Phase | Script | Sentinel |
 |-------|--------|----------|
 | A (done) | `.loop-phase-a.sh` | `AGENT_LOOP_TICK_phase_a` |
-| B (active) | `.loop-phase-b.sh` | `AGENT_LOOP_TICK_phase_b` |
+| B (done) | `.loop-phase-b.sh` | `AGENT_LOOP_TICK_phase_b` |
 
 **How to work tickets:** [docs/dev-workflow.md](../dev-workflow.md) (`/loop` playbook).  
 **Design source:** [docs/superpowers/specs/2026-07-18-tech-support-gba-design.md](../superpowers/specs/2026-07-18-tech-support-gba-design.md)

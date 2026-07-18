@@ -1,6 +1,6 @@
 # Phase C — Campaign days
 
-**Unlock:** Phase B acceptance criteria met.  
+**Unlock:** Phase B acceptance criteria met. **Unlocked.**  
 **Note:** Required before Phase G. May be deferred past Phase D if you prioritise carry/parts first (see sequencing exceptions).
 
 ## Goal

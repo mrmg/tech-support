@@ -16,12 +16,9 @@ Game Boy Advance office tech-support game — real-time fix-and-fetch chaos, bui
 
 **Phase A complete** — office & core loop (A-01…A-13).
 
-**Phase B active** — shift results (✓/✗ notepad, completion %, 75% pass). Tickets: `docs/phases/phase-B.md`. Loop helper: `.loop-phase-b.sh`.
+**Phase B complete** — shift results (B-01…B-04). At the bell, every spawned ticket is classified fixed/failed; results notepad lists OK/X per ticket, completion % (`fixed / spawned`), and pass/fail vs a **75%** threshold (`shift_results::pass_threshold_percent`). Zero spawns → 100%/pass. Mid-shift: urgency stays visual-only (no fail/removal); Select notepad still pauses; hold-A still clears. **A** retries the shift; **B** returns to title. Tickets: `docs/phases/phase-B.md`.
 
-```bash
-/loop 15m Work the next open Phase B implementation ticket using a fresh sub-agent.
-# (full prompt in docs/dev-workflow.md or .loop-phase-b-prompt.json)
-```
+**Phase C next** — campaign days. Tickets: `docs/phases/phase-C.md` (expand when starting).
 
 ## Toolchain setup (macOS)
 
@@ -81,12 +78,16 @@ Output ROM: `tech-support.gba` (title `TECHSUPPORT`, code `TS01`).
 make clean   # remove build/ and the ROM
 ```
 
-## Controls (Phase A)
+## Controls (Phase A–B)
 
 | Input | Action |
 |-------|--------|
 | D-pad | Move |
-| A | Hold to reboot (in desk range) / confirm title / retry shift (end screen) |
-| B | Return to title (end screen) |
+| A | Hold to reboot (in desk range) / confirm title / retry shift (results) |
+| B | Return to title (results) |
 | Select | Toggle notepad (pauses shift timer, spawns, and urgency while open) |
 | Start | Reserved (secondary confirm on title only) |
+
+### Shift results (Phase B)
+
+When the timer hits **0:00**, the results notepad shows each spawned ticket as **OK** (fixed) or **X** (still open at the bell), `F:n O:n xx%`, and pass (“PASS - good enough”) or fail (“Don't come back tomorrow”) vs the 75% bar. Fail is flavour + retry — not campaign sacking.

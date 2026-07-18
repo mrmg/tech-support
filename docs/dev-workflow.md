@@ -7,7 +7,7 @@ This project is built **phase by phase**. Work is tracked as **checkbox tickets*
 | What | Where |
 |------|--------|
 | Full design | `docs/superpowers/specs/2026-07-18-tech-support-gba-design.md` |
-| Current phase tickets | `docs/phases/phase-B.md` (A complete; then C, …) |
+| Current phase tickets | `docs/phases/phase-C.md` (A–B complete; expand C tickets when starting) |
 | Vision / tone | `docs/game-vision.md` |
 
 Only mark a ticket `- [x]` when its **Done when** criteria are met (ROM builds / behaviour visible in mGBA).

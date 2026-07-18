@@ -46,11 +46,11 @@ Current end screen (A-12): Fixed X / Still open Y; **A** retry; **B** title. Pha
 
 ## Acceptance criteria
 
-- [ ] At shift end, each spawned ticket is shown as ✓ or ✗
-- [ ] Completion % uses the formula above; threshold default 75
-- [ ] Below threshold → fail/retry messaging (flavour OK); at/above → pass messaging
-- [ ] Tickets are never removed as failed before the bell
-- [ ] **A** retries shift; **B** returns to title (same as A-12 inputs unless noted)
+- [x] At shift end, each spawned ticket is shown as ✓ or ✗
+- [x] Completion % uses the formula above; threshold default 75
+- [x] Below threshold → fail/retry messaging (flavour OK); at/above → pass messaging
+- [x] Tickets are never removed as failed before the bell
+- [x] **A** retries shift; **B** returns to title (same as A-12 inputs unless noted)
 
 ## Tickets
 
@@ -75,8 +75,11 @@ Current end screen (A-12): Fixed X / Still open Y; **A** retry; **B** title. Pha
 - **mGBA:** End with under 75% → fail copy + A/B; end with 75% or more → pass copy + A/B. Threshold constant easy to find/edit.
 - **Implemented:** `shift_results::pass_threshold_percent` (default 75) + `evaluate()`; results notepad shows `F:n O:n xx%` and pass (“PASS - good enough”) vs fail (“Don't come back tomorrow”); zero spawns → 100%/pass; A retry / B title unchanged on both.
 
-### - [ ] B-04 — Phase B pass (integration)
+### - [x] B-04 — Phase B pass (integration)
 
 - **Done when:** All Phase B acceptance criteria verified; tickets B-01…B-03 are `- [x]`; README notes Phase B behaviour; known jank listed for Phase C.
-- **Notes:** Human `mgba` click-through preferred. Confirm no mid-shift fail/removal. Confirm Phase A loop (notepad, hold-A, urgency) still works.
+- **Notes:**
+  - **Verification:** B-01…B-03 already `- [x]`. Clean `make -j$(sysctl -n hw.ncpu)` → `tech-support.gba` (~153 KB, title `TECHSUPPORT` / `TS01`). Code review of `ticket::spawner` (history + `classify_at_bell` only at bell; no mid-shift fail/removal), `shift_results::evaluate` / `pass_threshold_percent` (75; zero spawns → 100%/pass), `notepad::results_overlay` (OK/X list, %, pass/fail copy), and `shift_scene` (Select pause + hold-A path unchanged; A retry / B title) confirms all acceptance paths. Homebrew mGBA launches the ROM (exit 0) but has **no headless/screenshot CLI**; full interactive click-through needs a human with a display.
+  - **Human click-through still useful:** title→A→ tickets spawn → fix some / leave some → Select notepad still pauses → hold-A still clears → leave open for urgency → 0:00 → results notepad OK/X → `F:n O:n xx%` → pass or fail copy → A retry / B title. For a faster check, temporarily lower `shift::duration_seconds`.
+  - **Known jank for Phase C:** results use **OK/X** (font has no ✓/✗ glyphs); list caps at **4 rows** + `+N more` (no scroll); 120s shift is slow to playtest under/over 75%; integer % truncates (e.g. 2/3 → 66%); fail copy (“Don't come back tomorrow”) still same-shift retry (no campaign day yet); spawn history soft-caps at 32; Phase A leftovers remain (placeholder art, no SFX/music, Desk N labels only, A overloaded, interact AABB vs art, progress bar / edge-icon flicker, notepad snapshot on open, soft urgency flash subtle, desk-corner slide snags).
 - **mGBA checklist:** title→A→ tickets spawn → fix some / leave some → Select notepad still pauses → hold-A still clears → 0:00 → results notepad ✓/✗ → % → pass or fail copy → A retry / B title.
