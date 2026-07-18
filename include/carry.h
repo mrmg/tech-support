@@ -12,7 +12,7 @@
 namespace carry
 {
 
-// Parts available from the infinite-stock closet (Phase D).
+// Parts available from the closet (stock gated by inventory — Phase F).
 enum class part
 {
     none,
@@ -20,10 +20,11 @@ enum class part
     psu,
 };
 
-// Pickup rule (D-02): **replace**.
-// - A in closet range: empty → toner; already holding → swap to the other type.
-// - B in closet range: return part (clear slot). Infinite stock — no inventory cost.
-// Refuse-if-full is not used; A always succeeds at the closet.
+// Pickup rule (D-02): **replace**, stock-gated (F-01).
+// - A in closet range: empty → toner if stock > 0, else PSU if stock > 0; already holding →
+//   swap to the other type only when that type has stock. Blocked when target stock is 0.
+// - B in closet range: return part (clear slot). Does not change stock (consume is on install).
+// Refuse-if-full is not used; A succeeds only when the target part has stock.
 
 [[nodiscard]] constexpr bn::string_view part_label(part value)
 {

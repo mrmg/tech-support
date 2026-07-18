@@ -5,6 +5,9 @@
 
 #include "bn_sprite_items_part_icon.h"
 
+#include "inventory.h"
+#include "sfx.h"
+
 namespace carry
 {
 
@@ -50,6 +53,22 @@ constexpr bn::fixed hud_y = 64;
     }
 }
 
+// Empty hands: prefer toner, else PSU, else none (both out of stock).
+[[nodiscard]] part first_available_part()
+{
+    if(inventory::has_stock(part::toner))
+    {
+        return part::toner;
+    }
+
+    if(inventory::has_stock(part::psu))
+    {
+        return part::psu;
+    }
+
+    return part::none;
+}
+
 }
 
 slot::slot() :
@@ -88,23 +107,39 @@ void slot::update_at_closet(const bn::fixed_point& player_pos, const closet::ent
 
     if(bn::keypad::a_pressed())
     {
-        // Replace rule: empty takes toner; carrying swaps toner ↔ PSU.
         if(_held == part::none)
         {
-            _held = part::toner;
+            const part take = first_available_part();
+
+            if(take == part::none)
+            {
+                // Both part types at zero stock — pickup blocked.
+                return;
+            }
+
+            _held = take;
         }
         else
         {
-            _held = other_part(_held);
+            const part swap_to = other_part(_held);
+
+            if(! inventory::has_stock(swap_to))
+            {
+                // Target type exhausted — keep current part.
+                return;
+            }
+
+            _held = swap_to;
         }
 
+        sfx::play_pickup();
         _sync_hud();
         return;
     }
 
     if(bn::keypad::b_pressed() && _held != part::none)
     {
-        // Return to infinite closet stock.
+        // Return to hands; stock unchanged until install consumes.
         _held = part::none;
         _sync_hud();
     }
