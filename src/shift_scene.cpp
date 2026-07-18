@@ -68,8 +68,8 @@ void redraw_timer_hud(bn::sprite_text_generator& text_generator, bn::ivector<bn:
     text_generator.generate(0, -72, format_mm_ss(remaining_seconds), text_sprites);
 }
 
-// A = retry shift; B = return to title. No pass/fail gate yet (B-03).
-// Primary UI is the results notepad (desk + issue + OK/X per spawn).
+// A = retry shift; B = return to title (same on pass and fail).
+// Results notepad: OK/X list, completion %, pass/fail copy (threshold in shift_results.h).
 shift_end_choice show_shift_over_screen(const shift_summary& summary)
 {
     bn::bg_palettes::set_transparent_color(bn::color(4, 4, 6));

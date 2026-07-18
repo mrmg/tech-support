@@ -10,6 +10,7 @@
 #include "bn_regular_bg_items_notepad_bg.h"
 #include "common_variable_8x16_sprite_font.h"
 #include "desk.h"
+#include "shift_results.h"
 
 namespace notepad
 {
@@ -228,14 +229,28 @@ namespace
     }
 }
 
-bn::string<20> format_aggregate_header(int fixed_count, int still_open_count)
+bn::string<24> format_aggregate_header(int fixed_count, int still_open_count, int completion_percent)
 {
-    bn::string<20> text;
+    bn::string<24> text;
     text.append("F:");
     text.append(bn::to_string<3>(fixed_count));
     text.append(" O:");
     text.append(bn::to_string<3>(still_open_count));
+    text.append(' ');
+    text.append(bn::to_string<3>(completion_percent));
+    text.append('%');
     return text;
+}
+
+// ASCII-only pass/fail flavour (font may lack special glyphs). Fail is retry flavour, not sacking.
+[[nodiscard]] bn::string_view pass_fail_message(bool passed)
+{
+    if(passed)
+    {
+        return "PASS - good enough";
+    }
+
+    return "Don't come back tomorrow";
 }
 
 }
@@ -258,19 +273,25 @@ void results_overlay::_draw(bn::span<const ticket::history_entry> history, int f
 {
     _text_sprites.clear();
 
+    // still_open_count at the bell == failed_count after classify_at_bell.
+    const shift_results::evaluation eval = shift_results::evaluate(fixed_count, still_open_count);
+
     // Same ruled panel as mid-shift notepad; outcome column replaces urgency.
     constexpr bn::fixed left_x = 20;
     constexpr bn::fixed mark_x = 108;
-    constexpr bn::fixed header_y = -60;
-    constexpr bn::fixed aggregate_y = -46;
-    constexpr bn::fixed first_row_y = -28;
-    constexpr bn::fixed row_step = 14;
-    constexpr bn::fixed prompt_y = 52;
+    constexpr bn::fixed header_y = -62;
+    constexpr bn::fixed aggregate_y = -48;
+    constexpr bn::fixed status_y = -34;
+    constexpr bn::fixed first_row_y = -18;
+    constexpr bn::fixed row_step = 12;
+    constexpr bn::fixed prompt_y = 48;
 
     _text_generator.set_left_alignment();
     _text_generator.generate(left_x, header_y, "RESULTS", _text_sprites);
-    _text_generator.generate(left_x, aggregate_y, format_aggregate_header(fixed_count, still_open_count),
+    _text_generator.generate(left_x, aggregate_y,
+                             format_aggregate_header(fixed_count, still_open_count, eval.completion_percent),
                              _text_sprites);
+    _text_generator.generate(left_x, status_y, pass_fail_message(eval.passed), _text_sprites);
 
     const int history_count = history.size();
     const int visible =
@@ -307,14 +328,15 @@ void results_overlay::_draw(bn::span<const ticket::history_entry> history, int f
     }
     else if(history_count == 0)
     {
+        // Zero spawns: evaluate() already treats as 100% / pass; list is empty.
         _text_generator.set_left_alignment();
         _text_generator.generate(left_x, first_row_y, "No tickets", _text_sprites);
     }
 
-    // Keep A/B on the notepad (same as A-12 inputs; B-03 may refine copy).
+    // A retries the same shift; B returns to title — same on pass and fail.
     _text_generator.set_left_alignment();
     _text_generator.generate(left_x, prompt_y, "A: Retry", _text_sprites);
-    _text_generator.generate(left_x, prompt_y + 14, "B: Title", _text_sprites);
+    _text_generator.generate(left_x, prompt_y + 12, "B: Title", _text_sprites);
 }
 
 }

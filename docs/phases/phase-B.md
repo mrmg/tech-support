@@ -68,11 +68,12 @@ Current end screen (A-12): Fixed X / Still open Y; **A** retry; **B** title. Pha
 - **mGBA:** End shift with mixed fixed/open → see per-ticket ✓/✗ list.
 - **Implemented:** `notepad::results_overlay` reuses `notepad_bg` + ink palette; lists desk + issue + OK/X (font has no ✓/✗ glyphs); `F:n O:n` header; max 4 rows + `+N more`; A retry / B title unchanged.
 
-### - [ ] B-03 — Completion % + pass threshold
+### - [x] B-03 — Completion % + pass threshold
 
 - **Done when:** End screen shows completion % using the locked formula; configurable threshold default **75**; pass vs fail messaging differs (fail may use “don’t come back tomorrow” flavour — **not** a sacked game over).
 - **Notes:** Named constant for threshold. Zero spawns → 100% / pass. Wire **A** = retry shift, **B** = title on both pass and fail (unless you add a one-line hint that fail still retries the same shift — no campaign yet).
 - **mGBA:** End with under 75% → fail copy + A/B; end with 75% or more → pass copy + A/B. Threshold constant easy to find/edit.
+- **Implemented:** `shift_results::pass_threshold_percent` (default 75) + `evaluate()`; results notepad shows `F:n O:n xx%` and pass (“PASS - good enough”) vs fail (“Don't come back tomorrow”); zero spawns → 100%/pass; A retry / B title unchanged on both.
 
 ### - [ ] B-04 — Phase B pass (integration)
 
