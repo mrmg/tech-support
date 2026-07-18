@@ -12,6 +12,7 @@
 #include "bn_vector.h"
 
 #include "camera_follow.h"
+#include "campaign.h"
 #include "common_variable_8x16_sprite_font.h"
 #include "desk.h"
 #include "fix_interaction.h"
@@ -61,10 +62,20 @@ bn::string<8> format_mm_ss(int total_seconds)
     return text;
 }
 
-void redraw_timer_hud(bn::sprite_text_generator& text_generator, bn::ivector<bn::sprite_ptr>& text_sprites,
+// C-01 debug: show campaign day beside the shift timer (C-02 will polish Day HUD).
+void redraw_shift_hud(bn::sprite_text_generator& text_generator, bn::ivector<bn::sprite_ptr>& text_sprites,
                       int remaining_seconds)
 {
     text_sprites.clear();
+
+    bn::string<8> day_text;
+    day_text.append("Day ");
+    day_text.append(bn::to_string<2>(campaign::current_day()));
+
+    text_generator.set_left_alignment();
+    text_generator.generate(-112, -72, day_text, text_sprites);
+
+    text_generator.set_center_alignment();
     text_generator.generate(0, -72, format_mm_ss(remaining_seconds), text_sprites);
 }
 
@@ -123,8 +134,8 @@ shift_summary play_one_shift()
     bn::sprite_text_generator hud_text(common::variable_8x16_sprite_font);
     hud_text.set_center_alignment();
     hud_text.set_bg_priority(0);
-    // HUD is screen-fixed (no camera).
-    bn::vector<bn::sprite_ptr, 16> hud_sprites;
+    // HUD is screen-fixed (no camera). Day label + mm:ss timer.
+    bn::vector<bn::sprite_ptr, 32> hud_sprites;
 
     int remaining_frames = shift::duration_frames;
     int shown_seconds = -1;
@@ -175,7 +186,7 @@ shift_summary play_one_shift()
         if(remaining_seconds != shown_seconds)
         {
             shown_seconds = remaining_seconds;
-            redraw_timer_hud(hud_text, hud_sprites, remaining_seconds);
+            redraw_shift_hud(hud_text, hud_sprites, remaining_seconds);
         }
 
         bn::core::update();

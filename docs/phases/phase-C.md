@@ -38,11 +38,12 @@ Linear **days** (Day 1, Day 2, …). Each day is one **shift** (plus retries). R
 
 ## Tickets
 
-### - [ ] C-01 — Campaign day state
+### - [x] C-01 — Campaign day state
 
 - **Done when:** A campaign module tracks `current_day` (starting at 1) and exposes helpers to read it / advance / reset for a new run. Title→shift path uses this state (even if UI still says little).
 - **Notes:** Session memory is enough (SRAM optional, not required). Named constant for max days (suggest **5**).
 - **mGBA:** Not much visible yet — prepare for C-02; debug text of day on shift OK.
+- **Implemented:** `campaign` module (`include/campaign.h`, `src/campaign.cpp`) with `current_day` (boot/reset → 1), `max_days` (5), `reset()` / `advance()` / `current_day()`. `main` resets on boot; shift HUD debug-labels **Day N** from campaign state (title→A→shift).
 
 ### - [ ] C-02 — Day number HUD
 
