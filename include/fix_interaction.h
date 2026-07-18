@@ -6,17 +6,18 @@
 #include "bn_optional.h"
 #include "bn_sprite_ptr.h"
 
+#include "carry.h"
 #include "shift.h"
 #include "ticket.h"
 
-// Hold-A-in-range reboot: progress fills only while A is held and player stays in range.
-// Needs-part tickets: no progress until D-04 (correct carried part).
+// Hold-A-in-range fix: progress fills only while A is held and player stays in range.
+// Reboot: no part required. Needs-part: correct carried part required; consumed on complete.
 namespace fix_interaction
 {
 
 namespace reboot
 {
-    // Tunable hold duration for Phase A reboot fixes.
+    // Tunable hold duration for reboot and install fixes (shared progress bar).
     inline constexpr int hold_duration_seconds = 2;
     inline constexpr int hold_duration_frames = hold_duration_seconds * shift::frames_per_second;
 }
@@ -30,8 +31,10 @@ public:
     void reset();
 
     // Advance hold while A is held in a desk interact range with an open ticket.
-    // Release A or leave range resets progress to zero. Completing clears the ticket.
-    void update(const bn::fixed_point& player_pos, ticket::spawner& tickets,
+    // Needs-part: only progresses when carried matches required_part; on complete consumes
+    // the part, clears the ticket, desk idle. Wrong/missing part: no progress.
+    // Reboot: hold-A without a part (unchanged). Release A or leave range resets to zero.
+    void update(const bn::fixed_point& player_pos, ticket::spawner& tickets, carry::slot& carried,
                 const bn::camera_ptr& camera);
 
 private:

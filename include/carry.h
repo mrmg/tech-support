@@ -8,7 +8,7 @@
 
 #include "closet.h"
 
-// Single-slot carry for Phase D parts (closet pickup). Install/consume is D-04.
+// Single-slot carry for Phase D parts (closet pickup; consume on desk install).
 namespace carry
 {
 

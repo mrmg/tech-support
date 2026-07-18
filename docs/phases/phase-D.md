@@ -46,10 +46,10 @@ One carried item at a time. **Same-map storage closet** (cupboard on the office 
 - **Notes:** Mix both types during a shift. Data-driven ticket kind enum (`reboot` / `needs_toner` / `needs_psu`). Hold-A on needs-part is blocked until D-04 (no clear without part).
 - **mGBA:** See a “needs toner” (or PSU) ticket in notepad.
 
-### - [ ] D-04 — Hold-to-install with correct part
+### - [x] D-04 — Hold-to-install with correct part
 
 - **Done when:** At desk with needs-part ticket, hold A only progresses if carrying the correct part; on complete, consume part, clear ticket, desk idle. Wrong/missing part: no progress (optional short deny feedback). Reboot tickets still use hold-A without a part.
-- **Notes:** Reuse progress bar from reboot. Release/leave resets progress.
+- **Notes:** Reuse progress bar from reboot. Release/leave resets progress. `hold_to_reboot::update` gates needs-* on `carried.held() == required_part`; on complete `clear_desk` + `carried.clear()`.
 - **mGBA:** Without part, hold does nothing useful; with part, hold clears ticket and empties carry.
 
 ### - [ ] D-05 — Phase D pass (integration)

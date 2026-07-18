@@ -216,9 +216,9 @@ shift_summary play_one_shift()
             walk_player.update();
             tickets.update();
 
-            // Closet pickup before hold-to-reboot so A pressed at cupboard fills carry.
+            // Closet pickup before hold-to-fix so A pressed at cupboard fills carry.
             carried.update_at_closet(walk_player.position(), storage_closet);
-            reboot_fix.update(walk_player.position(), tickets, camera);
+            reboot_fix.update(walk_player.position(), tickets, carried, camera);
             --remaining_frames;
         }
 

@@ -86,7 +86,7 @@ void hold_to_reboot::reset()
 }
 
 void hold_to_reboot::update(const bn::fixed_point& player_pos, ticket::spawner& tickets,
-                            const bn::camera_ptr& camera)
+                            carry::slot& carried, const bn::camera_ptr& camera)
 {
     if(! bn::keypad::a_held())
     {
@@ -102,8 +102,10 @@ void hold_to_reboot::update(const bn::fixed_point& player_pos, ticket::spawner& 
         return;
     }
 
-    // D-03: needs-part tickets stay broken until D-04 install; block clear without part.
-    if(ticket::requires_part(tickets.issue_type_for_desk(desk_id)))
+    const ticket::type issue = tickets.issue_type_for_desk(desk_id);
+
+    // Needs-part: hold only progresses with the matching carried part (wrong/missing = no progress).
+    if(ticket::requires_part(issue) && carried.held() != ticket::required_part(issue))
     {
         reset();
         return;
@@ -121,6 +123,12 @@ void hold_to_reboot::update(const bn::fixed_point& player_pos, ticket::spawner& 
     if(_progress_frames >= reboot::hold_duration_frames)
     {
         tickets.clear_desk(desk_id);
+
+        if(ticket::requires_part(issue))
+        {
+            carried.clear();
+        }
+
         reset();
     }
 }

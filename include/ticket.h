@@ -13,7 +13,7 @@
 namespace ticket
 {
 
-// Data-driven issue kinds. needs_* require the matching carry::part (install = D-04).
+// Data-driven issue kinds. needs_* require the matching carry::part to install.
 enum class type
 {
     reboot,
@@ -103,7 +103,7 @@ inline constexpr int max_history = 32;
 // Short issue line for notepad / results (shared label for a ticket type).
 [[nodiscard]] bn::string_view issue_label(type issue_type);
 
-// True for needs_toner / needs_psu (hold-to-install is D-04).
+// True for needs_toner / needs_psu (hold-to-install consumes required_part).
 [[nodiscard]] bool requires_part(type issue_type);
 
 // Part required to clear a needs-* ticket; carry::part::none for reboot.
