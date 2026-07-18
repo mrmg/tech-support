@@ -29,6 +29,8 @@ struct shift_summary
 {
     int fixed_count;
     int still_open_count;
+    // Per-spawn classification for results UI (B-01); B-02 will render as notepad.
+    bn::vector<ticket::history_entry, ticket::max_history> history;
 };
 
 enum class shift_end_choice
@@ -74,7 +76,42 @@ bn::string<24> format_count_line(const char* label, int count)
     return text;
 }
 
+bn::string<28> format_history_line(int index, const ticket::history_entry& entry)
+{
+    // Compact debug dump until B-02 notepad: "0 D1 reboot F" / "... X"
+    bn::string<28> text;
+    text.append(bn::to_string<2>(index));
+    text.append(" D");
+    text.append(bn::to_string<2>(entry.desk_id + 1));
+    text.append(' ');
+    text.append(ticket::issue_label(entry.issue_type));
+    text.append(' ');
+
+    switch(entry.result)
+    {
+    case ticket::outcome::fixed:
+        text.append('F');
+        break;
+
+    case ticket::outcome::failed:
+        text.append('X');
+        break;
+
+    case ticket::outcome::pending:
+        // Should not appear after classify_at_bell.
+        text.append('?');
+        break;
+
+    default:
+        text.append('?');
+        break;
+    }
+
+    return text;
+}
+
 // A = retry shift; B = return to title. No pass/fail gate (Phase B).
+// B-01: dump per-ticket F/X classification (B-02 replaces with notepad UI).
 shift_end_choice show_shift_over_screen(const shift_summary& summary)
 {
     bn::bg_palettes::set_transparent_color(bn::color(4, 4, 6));
@@ -83,11 +120,42 @@ shift_end_choice show_shift_over_screen(const shift_summary& summary)
     text_generator.set_center_alignment();
 
     bn::vector<bn::sprite_ptr, 64> text_sprites;
-    text_generator.generate(0, -40, "SHIFT OVER", text_sprites);
-    text_generator.generate(0, -12, format_count_line("Fixed ", summary.fixed_count), text_sprites);
-    text_generator.generate(0, 8, format_count_line("Still open ", summary.still_open_count), text_sprites);
-    text_generator.generate(0, 36, "A: Retry", text_sprites);
-    text_generator.generate(0, 52, "B: Title", text_sprites);
+    text_generator.generate(0, -68, "SHIFT OVER", text_sprites);
+    text_generator.generate(0, -50, format_count_line("Fixed ", summary.fixed_count), text_sprites);
+    text_generator.generate(0, -34, format_count_line("Still open ", summary.still_open_count), text_sprites);
+
+    // Show up to 4 history rows + "+N more" so sprite budget stays safe.
+    constexpr int max_visible = 4;
+    const int history_count = summary.history.size();
+    const int visible = history_count < max_visible ? history_count : max_visible;
+    bn::fixed row_y = -14;
+
+    text_generator.set_left_alignment();
+
+    for(int index = 0; index < visible; ++index)
+    {
+        text_generator.generate(-56, row_y, format_history_line(index, summary.history[index]), text_sprites);
+        row_y += 12;
+    }
+
+    if(history_count > max_visible)
+    {
+        bn::string<16> more;
+        more.append('+');
+        more.append(bn::to_string<4>(history_count - max_visible));
+        more.append(" more");
+        text_generator.generate(-56, row_y, more, text_sprites);
+        row_y += 12;
+    }
+    else if(history_count == 0)
+    {
+        text_generator.generate(-56, row_y, "No tickets", text_sprites);
+        row_y += 12;
+    }
+
+    text_generator.set_center_alignment();
+    text_generator.generate(0, 44, "A: Retry", text_sprites);
+    text_generator.generate(0, 60, "B: Title", text_sprites);
 
     while(true)
     {
@@ -193,8 +261,19 @@ shift_summary play_one_shift()
         bn::core::update();
     }
 
-    // Capture at the bell before office scope tears down.
-    return shift_summary{tickets.fixed_count(), tickets.open_count()};
+    // Classify every spawn at the bell (open → failed; cleared → fixed). No mid-shift fail.
+    tickets.classify_at_bell();
+
+    shift_summary summary;
+    summary.fixed_count = tickets.fixed_count();
+    summary.still_open_count = tickets.open_count();
+
+    for(const ticket::history_entry& entry : tickets.history())
+    {
+        summary.history.push_back(entry);
+    }
+
+    return summary;
 }
 
 }

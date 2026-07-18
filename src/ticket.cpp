@@ -3,10 +3,23 @@
 namespace ticket
 {
 
+bn::string_view issue_label(type issue_type)
+{
+    switch(issue_type)
+    {
+    case type::reboot:
+        return "reboot";
+
+    default:
+        return "?";
+    }
+}
+
 spawner::spawner() :
     _frames_until_next_spawn(spawn::first_spawn_frames),
     _spawned_count(0),
-    _fixed_count(0)
+    _fixed_count(0),
+    _classified(false)
 {
 }
 
@@ -47,6 +60,11 @@ int spawner::fixed_count() const
     return _fixed_count;
 }
 
+int spawner::spawned_count() const
+{
+    return _spawned_count;
+}
+
 bool spawner::desk_has_open_ticket(int desk_id) const
 {
     for(const instance& entry : _open)
@@ -73,15 +91,60 @@ int spawner::urgency_for_desk(int desk_id) const
     return 0;
 }
 
+bn::span<const history_entry> spawner::history() const
+{
+    return bn::span<const history_entry>(_history.data(), _history.size());
+}
+
+bool spawner::is_classified() const
+{
+    return _classified;
+}
+
 void spawner::clear_desk(int desk_id)
 {
     for(int index = 0; index < _open.size(); ++index)
     {
         if(_open[index].open && _open[index].desk_id == desk_id)
         {
+            _mark_history_fixed(desk_id);
             _open.erase(_open.begin() + index);
             _urgency_frames.erase(_urgency_frames.begin() + index);
             ++_fixed_count;
+            return;
+        }
+    }
+}
+
+void spawner::classify_at_bell()
+{
+    if(_classified)
+    {
+        return;
+    }
+
+    for(history_entry& entry : _history)
+    {
+        if(entry.result == outcome::pending)
+        {
+            // Still open at the bell → failed (not fixed in time). Not a mid-shift expiry.
+            entry.result = outcome::failed;
+        }
+    }
+
+    _classified = true;
+}
+
+void spawner::_mark_history_fixed(int desk_id)
+{
+    // One open ticket per desk ⇒ at most one pending history row for that desk.
+    for(int index = _history.size() - 1; index >= 0; --index)
+    {
+        history_entry& entry = _history[index];
+
+        if(entry.desk_id == desk_id && entry.result == outcome::pending)
+        {
+            entry.result = outcome::fixed;
             return;
         }
     }
@@ -146,6 +209,13 @@ void spawner::_try_spawn()
         return;
     }
 
+    if(_history.full())
+    {
+        // History full — stop scheduling further spawns (should not hit at default length).
+        _frames_until_next_spawn = -1;
+        return;
+    }
+
     const int desk_id = _find_free_desk();
 
     if(desk_id < 0)
@@ -154,8 +224,10 @@ void spawner::_try_spawn()
         return;
     }
 
-    _open.push_back(instance{desk_id, type::reboot, urgency::initial_level, true});
+    const type issue_type = type::reboot;
+    _open.push_back(instance{desk_id, issue_type, urgency::initial_level, true});
     _urgency_frames.push_back(0);
+    _history.push_back(history_entry{desk_id, issue_type, outcome::pending});
     ++_spawned_count;
     _schedule_next_spawn();
 }
