@@ -13,6 +13,7 @@
 
 #include "camera_follow.h"
 #include "campaign.h"
+#include "closet.h"
 #include "common_variable_8x16_sprite_font.h"
 #include "day_intro_scene.h"
 #include "desk.h"
@@ -156,6 +157,10 @@ shift_summary play_one_shift()
         desks.emplace_back(index);
         desks.back().set_camera(camera);
     }
+
+    // D-01: same-map storage cupboard (collision via office::solid_boxes).
+    closet::entity storage_closet;
+    storage_closet.set_camera(camera);
 
     // C-03: day index selects spawn + shift length (Day 1 == Phase A baseline).
     const campaign::day_difficulty day = campaign::difficulty_for_day(campaign::current_day());

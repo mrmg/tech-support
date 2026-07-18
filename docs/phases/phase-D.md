@@ -28,7 +28,7 @@ One carried item at a time. **Same-map storage closet** (cupboard on the office 
 
 ## Tickets
 
-### - [ ] D-01 — Storage closet on the office map
+### - [x] D-01 — Storage closet on the office map
 
 - **Done when:** A closet/cupboard zone exists on the same 512×256 office map with collision and a clear visual; player can walk up to it.
 - **Notes:** Same-map only. Placeholder art OK.
