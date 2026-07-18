@@ -31,9 +31,9 @@ Linear **days** (Day 1, Day 2, …). Each day is one **shift** (plus retries). R
 
 ## Acceptance criteria
 
-- [ ] Completing a day (pass) unlocks the next
-- [ ] Failing keeps you on the same day (retry shift)
-- [ ] Difficulty trends upward across early days
+- [x] Completing a day (pass) unlocks the next
+- [x] Failing keeps you on the same day (retry shift)
+- [x] Difficulty trends upward across early days
 - [x] UI distinguishes day number from shift timer
 
 ## Tickets
@@ -59,11 +59,12 @@ Linear **days** (Day 1, Day 2, …). Each day is one **shift** (plus retries). R
 - **mGBA:** Day 1 feels like today; jump current_day (debug) or advance and feel denser spawns on later days.
 - **Implemented:** `campaign::day_difficulty` table in `campaign.cpp` (Day 1 = Phase A spawn baseline; days 2–5 tighter gaps). `ticket::spawn::params` + `spawner(params)` feed the curve; `shift_scene` selects via `difficulty_for_day(current_day())` (shift length included, currently 120s all days). Title L/R + `set_day` for playtest jumps.
 
-### - [ ] C-04 — Pass advances day / fail retries day
+### - [x] C-04 — Pass advances day / fail retries day
 
 - **Done when:** Phase B **pass** advances `current_day` (or completes campaign on last day); **fail** keeps the same day and retries the shift. End/results copy can mention Day N.
 - **Notes:** A = retry (same day on fail; or continue/next on pass as appropriate); B = title. On pass after final day → “campaign complete” then B/title or A to restart campaign from Day 1.
 - **mGBA:** Fail → still Day N; Pass → Day N+1 on next shift; last day pass → complete message.
+- **Implemented:** `shift_scene::apply_shift_outcome` — fail leaves day; pass calls `campaign::advance()`; final-day pass shows “Campaign complete” then `campaign::reset()` (A → Day 1 shift, B → title Day 1). Results notepad header **Day N**; A prompt Retry / Next day / Restart.
 
 ### - [ ] C-05 — Day intro / title campaign flow
 

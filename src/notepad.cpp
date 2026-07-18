@@ -8,6 +8,7 @@
 #include "bn_string_view.h"
 
 #include "bn_regular_bg_items_notepad_bg.h"
+#include "campaign.h"
 #include "common_variable_8x16_sprite_font.h"
 #include "desk.h"
 #include "shift_results.h"
@@ -243,14 +244,35 @@ bn::string<24> format_aggregate_header(int fixed_count, int still_open_count, in
 }
 
 // ASCII-only pass/fail flavour (font may lack special glyphs). Fail is retry flavour, not sacking.
-[[nodiscard]] bn::string_view pass_fail_message(bool passed)
+[[nodiscard]] bn::string_view status_message(bool passed, bool campaign_complete)
 {
+    if(campaign_complete)
+    {
+        return "Campaign complete";
+    }
+
     if(passed)
     {
         return "PASS - good enough";
     }
 
     return "Don't come back tomorrow";
+}
+
+// A: fail → retry same day; pass → next day; final-day pass → restart from Day 1.
+[[nodiscard]] bn::string_view a_prompt(bool passed, bool campaign_complete)
+{
+    if(campaign_complete)
+    {
+        return "A: Restart";
+    }
+
+    if(passed)
+    {
+        return "A: Next day";
+    }
+
+    return "A: Retry";
 }
 
 }
@@ -274,7 +296,9 @@ void results_overlay::_draw(bn::span<const ticket::history_entry> history, int f
     _text_sprites.clear();
 
     // still_open_count at the bell == failed_count after classify_at_bell.
+    // Day shown is the shift just played (advance/reset happen after this screen).
     const shift_results::evaluation eval = shift_results::evaluate(fixed_count, still_open_count);
+    const bool campaign_complete = eval.passed && campaign::current_day() >= campaign::max_days;
 
     // Same ruled panel as mid-shift notepad; outcome column replaces urgency.
     constexpr bn::fixed left_x = 20;
@@ -286,12 +310,17 @@ void results_overlay::_draw(bn::span<const ticket::history_entry> history, int f
     constexpr bn::fixed row_step = 12;
     constexpr bn::fixed prompt_y = 48;
 
+    bn::string<12> day_header;
+    day_header.append("Day ");
+    day_header.append(bn::to_string<2>(campaign::current_day()));
+
     _text_generator.set_left_alignment();
-    _text_generator.generate(left_x, header_y, "RESULTS", _text_sprites);
+    _text_generator.generate(left_x, header_y, day_header, _text_sprites);
     _text_generator.generate(left_x, aggregate_y,
                              format_aggregate_header(fixed_count, still_open_count, eval.completion_percent),
                              _text_sprites);
-    _text_generator.generate(left_x, status_y, pass_fail_message(eval.passed), _text_sprites);
+    _text_generator.generate(left_x, status_y, status_message(eval.passed, campaign_complete),
+                             _text_sprites);
 
     const int history_count = history.size();
     const int visible =
@@ -333,9 +362,9 @@ void results_overlay::_draw(bn::span<const ticket::history_entry> history, int f
         _text_generator.generate(left_x, first_row_y, "No tickets", _text_sprites);
     }
 
-    // A retries the same shift; B returns to title — same on pass and fail.
+    // C-04: A = retry / next day / restart; B = title.
     _text_generator.set_left_alignment();
-    _text_generator.generate(left_x, prompt_y, "A: Retry", _text_sprites);
+    _text_generator.generate(left_x, prompt_y, a_prompt(eval.passed, campaign_complete), _text_sprites);
     _text_generator.generate(left_x, prompt_y + 12, "B: Title", _text_sprites);
 }
 

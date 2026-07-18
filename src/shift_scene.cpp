@@ -20,6 +20,7 @@
 #include "office.h"
 #include "player.h"
 #include "shift.h"
+#include "shift_results.h"
 #include "ticket.h"
 #include "world_cues.h"
 
@@ -90,8 +91,8 @@ void redraw_timer_hud(bn::sprite_text_generator& text_generator, bn::ivector<bn:
     text_generator.generate(timer_hud_x, timer_hud_y, format_mm_ss(remaining_seconds), timer_sprites);
 }
 
-// A = retry shift; B = return to title (same on pass and fail).
-// Results notepad: OK/X list, completion %, pass/fail copy (threshold in shift_results.h).
+// A = continue (retry / next day / restart); B = title.
+// Results notepad: Day N, OK/X list, %, pass/fail/complete (threshold in shift_results.h).
 shift_end_choice show_shift_over_screen(const shift_summary& summary)
 {
     bn::bg_palettes::set_transparent_color(bn::color(4, 4, 6));
@@ -113,6 +114,28 @@ shift_end_choice show_shift_over_screen(const shift_summary& summary)
 
         bn::core::update();
     }
+}
+
+// Apply C-04 campaign progression after the results screen for the day just played.
+// Fail: day unchanged. Pass: advance (or reset on final-day complete).
+void apply_shift_outcome(const shift_summary& summary)
+{
+    const shift_results::evaluation eval =
+        shift_results::evaluate(summary.fixed_count, summary.still_open_count);
+
+    if(! eval.passed)
+    {
+        return;
+    }
+
+    if(campaign::current_day() >= campaign::max_days)
+    {
+        // Final-day pass: campaign complete → back to Day 1 for restart / title.
+        campaign::reset();
+        return;
+    }
+
+    campaign::advance();
 }
 
 shift_summary play_one_shift()
@@ -231,19 +254,24 @@ void run_shift_scene()
 {
     while(true)
     {
-        // Scope ends the office so SHIFT OVER is a clean screen.
+        // Scope ends the office so results are a clean screen.
         const shift_summary summary = play_one_shift();
         const shift_end_choice choice = show_shift_over_screen(summary);
+
+        // Advance/reset after the player leaves results (copy still showed Day N).
+        apply_shift_outcome(summary);
 
         switch(choice)
         {
         case shift_end_choice::retry:
+            // Fail → same day; pass → next day; final pass → Day 1 after reset.
             break;
 
         case shift_end_choice::title:
             return;
 
         default:
+            // Exhaustive for shift_end_choice; catch new variants at compile/runtime.
             return;
         }
     }

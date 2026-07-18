@@ -29,7 +29,8 @@ struct day_difficulty
 // New run: back to Day 1.
 void reset();
 
-// Pass path (C-04): move to the next day. No-op when already on max_days.
+// Pass path (C-04): move to the next day. No-op when already on max_days
+// (final-day pass uses reset() after the campaign-complete results screen).
 void advance();
 
 // Debug / playtest: jump to a day in 1…max_days (clamped).
