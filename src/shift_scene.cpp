@@ -20,8 +20,8 @@
 #include "desk.h"
 #include "fix_interaction.h"
 #include "notepad.h"
-#include "office.h"
 #include "player.h"
+#include "room.h"
 #include "shift.h"
 #include "shift_results.h"
 #include "ticket.h"
@@ -141,12 +141,37 @@ void apply_shift_outcome(const shift_summary& summary)
     campaign::advance();
 }
 
+void set_main_floor_entities_visible(bn::vector<desk::entity, desk::count>& desks,
+                                     closet::entity& storage_closet, bool visible)
+{
+    for(desk::entity& desk_entity : desks)
+    {
+        desk_entity.sprite().set_visible(visible);
+    }
+
+    storage_closet.sprite().set_visible(visible);
+}
+
+// E-01: instant room swap — BG + solids + main-floor entities; closet stays office-only.
+void transition_to_room(room::id destination, bn::regular_bg_ptr& floor_bg, bn::camera_ptr& camera,
+                        player& walk_player, bn::vector<desk::entity, desk::count>& desks,
+                        closet::entity& storage_closet, room::id& current_room)
+{
+    current_room = destination;
+    floor_bg = room::create_background(current_room);
+    floor_bg.set_priority(3);
+    floor_bg.set_camera(camera);
+    walk_player.set_position(room::enter_spawn(current_room));
+    set_main_floor_entities_visible(desks, storage_closet, current_room == room::id::office);
+}
+
 shift_summary play_one_shift()
 {
     bn::bg_palettes::set_transparent_color(bn::color(4, 4, 6));
 
-    bn::regular_bg_ptr office_bg = office::create_background();
-    office_bg.set_priority(3);
+    room::id current_room = room::id::office;
+    bn::regular_bg_ptr floor_bg = room::create_background(current_room);
+    floor_bg.set_priority(3);
 
     player walk_player;
     bn::camera_ptr camera = bn::camera_ptr::create(0, 0);
@@ -159,7 +184,7 @@ shift_summary play_one_shift()
         desks.back().set_camera(camera);
     }
 
-    // D-01: same-map storage cupboard (collision via office::solid_boxes).
+    // D-01: storage cupboard on main office floor only (hidden while in server room).
     closet::entity storage_closet;
     storage_closet.set_camera(camera);
 
@@ -178,7 +203,7 @@ shift_summary play_one_shift()
     world_cues::edge_indicators edge_cues;
     fix_interaction::hold_to_reboot reboot_fix;
 
-    office_bg.set_camera(camera);
+    floor_bg.set_camera(camera);
     walk_player.sprite().set_camera(camera);
 
     bn::sprite_text_generator hud_text(common::variable_8x16_sprite_font);
@@ -191,7 +216,7 @@ shift_summary play_one_shift()
     int remaining_frames = day.shift_duration_seconds * shift::frames_per_second;
     int shown_seconds = -1;
 
-    const bn::size map_dims = office::map_dimensions();
+    bn::size map_dims = room::map_dimensions(current_room);
     update_camera_follow(camera, walk_player.position(), map_dims);
 
     while(remaining_frames > 0)
@@ -213,12 +238,30 @@ shift_summary play_one_shift()
         }
         else
         {
-            walk_player.update();
+            walk_player.update(room::solid_boxes(current_room));
+
+            // Door zone → other room (instant). Closet / desks only on office floor.
+            if(room::door_zone(current_room).contains(walk_player.position()))
+            {
+                transition_to_room(room::other(current_room), floor_bg, camera, walk_player, desks,
+                                   storage_closet, current_room);
+                map_dims = room::map_dimensions(current_room);
+                reboot_fix.reset();
+            }
+
             tickets.update();
 
-            // Closet pickup before hold-to-fix so A pressed at cupboard fills carry.
-            carried.update_at_closet(walk_player.position(), storage_closet);
-            reboot_fix.update(walk_player.position(), tickets, carried, camera);
+            if(current_room == room::id::office)
+            {
+                // Closet pickup before hold-to-fix so A pressed at cupboard fills carry.
+                carried.update_at_closet(walk_player.position(), storage_closet);
+                reboot_fix.update(walk_player.position(), tickets, carried, camera);
+            }
+            else
+            {
+                reboot_fix.reset();
+            }
+
             --remaining_frames;
         }
 

@@ -14,18 +14,20 @@ namespace
 
 // Map coords are centered at (0,0). Keep up/down walk lanes between desk rows
 // and a wide center corridor between left/right columns.
-constexpr bn::array<bn::fixed_rect, 4 + desk::count + 1> solid_list = {
+// Right wall is split for the Phase E door gap (y 20..60) into the server room.
+constexpr bn::array<bn::fixed_rect, 5 + desk::count + 1> solid_list = {
     // Outer walls (top band matches prior soft ceiling).
     bn::fixed_rect(0, -96, map_width, 64),
     bn::fixed_rect(0, 124, map_width, 8),
     bn::fixed_rect(-252, 0, 8, map_height),
-    bn::fixed_rect(252, 0, 8, map_height),
+    bn::fixed_rect(252, -54, 8, 148),
+    bn::fixed_rect(252, 94, 8, 68),
     // Desk solids from desk::definition_table.
     desk::solid_box_at(0),
     desk::solid_box_at(1),
     desk::solid_box_at(2),
     desk::solid_box_at(3),
-    // Same-map storage cupboard (Phase D).
+    // Same-map storage cupboard (Phase D) — stays on main floor only.
     closet::solid_box(),
 };
 

@@ -27,7 +27,7 @@ At least two rooms in one shift (office floor + server or printer room). Transit
 
 ## Tickets
 
-### - [ ] E-01 — Second room + transition
+### - [x] E-01 — Second room + transition
 
 - **Done when:** Player can leave the main office through a door/transition into a second room map and return.
 - **Notes:** Simple fade or instant transition OK. Separate BG for room 2.
