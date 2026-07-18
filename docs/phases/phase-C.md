@@ -34,7 +34,7 @@ Linear **days** (Day 1, Day 2, …). Each day is one **shift** (plus retries). R
 - [ ] Completing a day (pass) unlocks the next
 - [ ] Failing keeps you on the same day (retry shift)
 - [ ] Difficulty trends upward across early days
-- [ ] UI distinguishes day number from shift timer
+- [x] UI distinguishes day number from shift timer
 
 ## Tickets
 
@@ -45,11 +45,12 @@ Linear **days** (Day 1, Day 2, …). Each day is one **shift** (plus retries). R
 - **mGBA:** Not much visible yet — prepare for C-02; debug text of day on shift OK.
 - **Implemented:** `campaign` module (`include/campaign.h`, `src/campaign.cpp`) with `current_day` (boot/reset → 1), `max_days` (5), `reset()` / `advance()` / `current_day()`. `main` resets on boot; shift HUD debug-labels **Day N** from campaign state (title→A→shift).
 
-### - [ ] C-02 — Day number HUD
+### - [x] C-02 — Day number HUD
 
 - **Done when:** During a shift, HUD shows **Day N** clearly separate from the mm:ss shift timer.
 - **Notes:** Keep sprite budget reasonable; don’t collide with timer layout.
 - **mGBA:** title→A→ see Day 1 (or current) + timer both visible.
+- **Implemented:** Shift HUD draws **Day N** top-left from `campaign::current_day()` in its own sprite vector; mm:ss stays top-center and redraws independently (no shared clear / layout collision).
 
 ### - [ ] C-03 — Per-day difficulty parameters
 

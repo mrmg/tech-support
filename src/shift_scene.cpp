@@ -62,21 +62,32 @@ bn::string<8> format_mm_ss(int total_seconds)
     return text;
 }
 
-// C-01 debug: show campaign day beside the shift timer (C-02 will polish Day HUD).
-void redraw_shift_hud(bn::sprite_text_generator& text_generator, bn::ivector<bn::sprite_ptr>& text_sprites,
-                      int remaining_seconds)
+// C-02 Day HUD: top-left "Day N", separate from A-06 mm:ss timer (top-center).
+// Day is static for the shift; keep it in its own sprite vector so timer redraws
+// do not rebuild / collide with it (sprite budget: ~6 glyphs each).
+constexpr bn::fixed day_hud_x = -112;
+constexpr bn::fixed day_hud_y = -72;
+constexpr bn::fixed timer_hud_x = 0;
+constexpr bn::fixed timer_hud_y = -72;
+
+void draw_day_hud(bn::sprite_text_generator& text_generator, bn::ivector<bn::sprite_ptr>& day_sprites)
 {
-    text_sprites.clear();
+    day_sprites.clear();
 
     bn::string<8> day_text;
     day_text.append("Day ");
     day_text.append(bn::to_string<2>(campaign::current_day()));
 
     text_generator.set_left_alignment();
-    text_generator.generate(-112, -72, day_text, text_sprites);
+    text_generator.generate(day_hud_x, day_hud_y, day_text, day_sprites);
+}
 
+void redraw_timer_hud(bn::sprite_text_generator& text_generator, bn::ivector<bn::sprite_ptr>& timer_sprites,
+                      int remaining_seconds)
+{
+    timer_sprites.clear();
     text_generator.set_center_alignment();
-    text_generator.generate(0, -72, format_mm_ss(remaining_seconds), text_sprites);
+    text_generator.generate(timer_hud_x, timer_hud_y, format_mm_ss(remaining_seconds), timer_sprites);
 }
 
 // A = retry shift; B = return to title (same on pass and fail).
@@ -132,10 +143,11 @@ shift_summary play_one_shift()
     walk_player.sprite().set_camera(camera);
 
     bn::sprite_text_generator hud_text(common::variable_8x16_sprite_font);
-    hud_text.set_center_alignment();
     hud_text.set_bg_priority(0);
-    // HUD is screen-fixed (no camera). Day label + mm:ss timer.
-    bn::vector<bn::sprite_ptr, 32> hud_sprites;
+    // Screen-fixed HUD: Day N (left) + mm:ss (center). Separate vectors = no layout clash.
+    bn::vector<bn::sprite_ptr, 8> day_sprites;
+    bn::vector<bn::sprite_ptr, 8> timer_sprites;
+    draw_day_hud(hud_text, day_sprites);
 
     int remaining_frames = shift::duration_frames;
     int shown_seconds = -1;
@@ -186,7 +198,7 @@ shift_summary play_one_shift()
         if(remaining_seconds != shown_seconds)
         {
             shown_seconds = remaining_seconds;
-            redraw_shift_hud(hud_text, hud_sprites, remaining_seconds);
+            redraw_timer_hud(hud_text, timer_sprites, remaining_seconds);
         }
 
         bn::core::update();
