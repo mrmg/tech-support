@@ -11,6 +11,7 @@
 #include "ticket.h"
 
 // Select-toggled ticket notepad overlay (pauses shift while open).
+// Shift-end results reuse the same notepad panel + ink styling.
 namespace notepad
 {
 
@@ -35,6 +36,24 @@ private:
     void _show();
     void _hide();
     void _draw_list(bn::span<const ticket::instance> open_tickets);
+};
+
+// End-of-shift results notepad: desk + issue + OK/X per spawn (✓/✗ stand-ins).
+// Aggregates stay as a compact header; list is the primary UI. RAII show/hide.
+class results_overlay
+{
+public:
+    results_overlay(bn::span<const ticket::history_entry> history, int fixed_count, int still_open_count);
+
+    // Max rows drawn before "+N more" (one glyph ≈ one sprite; keep OAM safe).
+    static constexpr int max_visible_rows = 4;
+
+private:
+    bn::optional<bn::regular_bg_ptr> _panel_bg;
+    bn::sprite_text_generator _text_generator;
+    bn::vector<bn::sprite_ptr, 96> _text_sprites;
+
+    void _draw(bn::span<const ticket::history_entry> history, int fixed_count, int still_open_count);
 };
 
 }

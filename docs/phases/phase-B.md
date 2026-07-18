@@ -59,13 +59,14 @@ Current end screen (A-12): Fixed X / Still open Y; **A** retry; **B** title. Pha
 - **Done when:** On shift end, every ticket that spawned during the shift is classified **fixed** or **failed**; failed means “not fixed before the bell,” not “expired mid-shift.” Classification data is available to the results UI (not only aggregate counts).
 - **Notes:** Soft urgency from A still only affects visuals during the shift. Need a spawn log / history (desk id, issue label, whether cleared before bell). Open tickets at the bell → failed; cleared via hold-to-reboot → fixed. Do not remove tickets mid-shift.
 - **mGBA:** Temporarily lower `shift::duration_seconds` if needed → spawn ≥1 ticket → fix some, leave some open → at 0:00 verify classification data exists for each spawned ticket (debug text OK until B-02).
-- **Implemented:** `ticket::history_entry` spawn log on `ticket::spawner` (desk id, issue type/label, outcome). `clear_desk` marks fixed; `classify_at_bell()` turns remaining pending → failed. End screen dumps per-ticket `F`/`X` lines (A-12 aggregates kept) until B-02.
+- **Implemented:** `ticket::history_entry` spawn log on `ticket::spawner` (desk id, issue type/label, outcome). `clear_desk` marks fixed; `classify_at_bell()` turns remaining pending → failed. Results UI is B-02.
 
-### - [ ] B-02 — Results notepad
+### - [x] B-02 — Results notepad
 
 - **Done when:** Shift-end screen lists each spawned ticket with ✓ or ✗ (notepad styling OK — can reuse/adapt A-08 notepad look).
 - **Notes:** Show desk/person label + short issue line + outcome. Scroll or truncate if many tickets (GBA sprite limits — keep to a small max visible with “+N more” if needed). Replace bare Fixed/Open summary as the primary end UI (aggregates can remain as a header).
 - **mGBA:** End shift with mixed fixed/open → see per-ticket ✓/✗ list.
+- **Implemented:** `notepad::results_overlay` reuses `notepad_bg` + ink palette; lists desk + issue + OK/X (font has no ✓/✗ glyphs); `F:n O:n` header; max 4 rows + `+N more`; A retry / B title unchanged.
 
 ### - [ ] B-03 — Completion % + pass threshold
 

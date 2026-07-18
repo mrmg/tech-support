@@ -29,7 +29,7 @@ struct shift_summary
 {
     int fixed_count;
     int still_open_count;
-    // Per-spawn classification for results UI (B-01); B-02 will render as notepad.
+    // Per-spawn classification for results notepad (desk + issue + outcome).
     bn::vector<ticket::history_entry, ticket::max_history> history;
 };
 
@@ -68,94 +68,14 @@ void redraw_timer_hud(bn::sprite_text_generator& text_generator, bn::ivector<bn:
     text_generator.generate(0, -72, format_mm_ss(remaining_seconds), text_sprites);
 }
 
-bn::string<24> format_count_line(const char* label, int count)
-{
-    bn::string<24> text;
-    text.append(label);
-    text.append(bn::to_string<4>(count));
-    return text;
-}
-
-bn::string<28> format_history_line(int index, const ticket::history_entry& entry)
-{
-    // Compact debug dump until B-02 notepad: "0 D1 reboot F" / "... X"
-    bn::string<28> text;
-    text.append(bn::to_string<2>(index));
-    text.append(" D");
-    text.append(bn::to_string<2>(entry.desk_id + 1));
-    text.append(' ');
-    text.append(ticket::issue_label(entry.issue_type));
-    text.append(' ');
-
-    switch(entry.result)
-    {
-    case ticket::outcome::fixed:
-        text.append('F');
-        break;
-
-    case ticket::outcome::failed:
-        text.append('X');
-        break;
-
-    case ticket::outcome::pending:
-        // Should not appear after classify_at_bell.
-        text.append('?');
-        break;
-
-    default:
-        text.append('?');
-        break;
-    }
-
-    return text;
-}
-
-// A = retry shift; B = return to title. No pass/fail gate (Phase B).
-// B-01: dump per-ticket F/X classification (B-02 replaces with notepad UI).
+// A = retry shift; B = return to title. No pass/fail gate yet (B-03).
+// Primary UI is the results notepad (desk + issue + OK/X per spawn).
 shift_end_choice show_shift_over_screen(const shift_summary& summary)
 {
     bn::bg_palettes::set_transparent_color(bn::color(4, 4, 6));
 
-    bn::sprite_text_generator text_generator(common::variable_8x16_sprite_font);
-    text_generator.set_center_alignment();
-
-    bn::vector<bn::sprite_ptr, 64> text_sprites;
-    text_generator.generate(0, -68, "SHIFT OVER", text_sprites);
-    text_generator.generate(0, -50, format_count_line("Fixed ", summary.fixed_count), text_sprites);
-    text_generator.generate(0, -34, format_count_line("Still open ", summary.still_open_count), text_sprites);
-
-    // Show up to 4 history rows + "+N more" so sprite budget stays safe.
-    constexpr int max_visible = 4;
-    const int history_count = summary.history.size();
-    const int visible = history_count < max_visible ? history_count : max_visible;
-    bn::fixed row_y = -14;
-
-    text_generator.set_left_alignment();
-
-    for(int index = 0; index < visible; ++index)
-    {
-        text_generator.generate(-56, row_y, format_history_line(index, summary.history[index]), text_sprites);
-        row_y += 12;
-    }
-
-    if(history_count > max_visible)
-    {
-        bn::string<16> more;
-        more.append('+');
-        more.append(bn::to_string<4>(history_count - max_visible));
-        more.append(" more");
-        text_generator.generate(-56, row_y, more, text_sprites);
-        row_y += 12;
-    }
-    else if(history_count == 0)
-    {
-        text_generator.generate(-56, row_y, "No tickets", text_sprites);
-        row_y += 12;
-    }
-
-    text_generator.set_center_alignment();
-    text_generator.generate(0, 44, "A: Retry", text_sprites);
-    text_generator.generate(0, 60, "B: Title", text_sprites);
+    const bn::span<const ticket::history_entry> history(summary.history.data(), summary.history.size());
+    const notepad::results_overlay results(history, summary.fixed_count, summary.still_open_count);
 
     while(true)
     {
