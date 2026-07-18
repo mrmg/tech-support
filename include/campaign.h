@@ -6,10 +6,10 @@
 namespace campaign
 {
 
-// Finite early campaign length. Day index is 1…max_days.
-inline constexpr int max_days = 5;
+// Finite teaching campaign length (Phase J). Day index is 1…max_days.
+inline constexpr int max_days = 4;
 
-// Per-day spawn + shift length (C-03). Day 1 matches Phase A baseline; later days tighter.
+// Per-day spawn + shift length (C-03 / J-01). Short teaching days; later rows denser.
 // Tweak this table only — spawner / shift scene read via difficulty_for_day().
 struct day_difficulty
 {
@@ -33,7 +33,7 @@ void reset();
 // (final-day pass uses reset() after the campaign-complete results screen).
 void advance();
 
-// Debug / playtest: jump to a day in 1…max_days (clamped).
+// Playtest helper only (not bound to any keypad shortcut). Jump to day 1…max_days.
 void set_day(int day);
 
 }

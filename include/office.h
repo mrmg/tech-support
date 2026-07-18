@@ -17,7 +17,7 @@ constexpr int map_height = 256;
 bn::regular_bg_ptr create_background();
 bn::size map_dimensions();
 
-// Wall bands + desk solids + storage closet solid (right wall has door gap).
+// Wall bands + desk solids + supply-bin solids (right wall has door gap).
 [[nodiscard]] bn::span<const bn::fixed_rect> solid_boxes();
 
 }

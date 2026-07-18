@@ -8,16 +8,14 @@ namespace
 
 int g_current_day = 1;
 
-// H-04 playability defaults. Index 0 = Day 1 (matches ticket::spawn::* baseline).
-// Later rows: shorter gaps → denser spawns. All shifts 120s. ≈spawn count is a guide only
-// (desk cap / clears change the real total).
+// J-01 teaching-day defaults. Index 0 = Day 1. Short shifts; later rows denser.
+// ≈spawn count is a guide only (desk cap / clears change the real total).
 constexpr day_difficulty day_table[max_days] = {
     // first, interval, shrink, min, shift_duration
-    { 6, 20, 2, 10, 120 }, // Day 1 — ~9 spawns; learn day (parts + server room)
-    { 5, 16, 2, 8, 120 },  // Day 2 — ~11
-    { 4, 13, 2, 7, 120 },  // Day 3 — ~13
-    { 3, 11, 2, 6, 120 },  // Day 4 — denser mid-late
-    { 3, 9, 1, 5, 120 },   // Day 5 — densest; min gap 5s (not 4) for travel fairness
+    { 5, 12, 1, 8, 45 }, // Day 1 — ~4 spawns; reboot teaching
+    { 4, 10, 1, 7, 55 }, // Day 2 — ~6; toner teaching
+    { 4, 9, 1, 6, 60 },  // Day 3 — ~7–8; PSU teaching
+    { 3, 8, 1, 5, 60 },  // Day 4 — densest short finale; server teaching
 };
 
 [[nodiscard]] int clamp_day(int day)

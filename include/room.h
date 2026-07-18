@@ -38,7 +38,7 @@ constexpr int map_height = 256;
 bn::regular_bg_ptr create_background(id room_id);
 bn::size map_dimensions(id room_id);
 
-// Collision solids for the active room (office keeps Phase D closet).
+// Collision solids for the active room (office keeps supply bins).
 [[nodiscard]] bn::span<const bn::fixed_rect> solid_boxes(id room_id);
 
 // Walk-into trigger on each map (right door on office, left door on server).

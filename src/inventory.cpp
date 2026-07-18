@@ -12,6 +12,12 @@ int g_psu_stock = starting_psu_stock;
 int g_toner_pending = 0;
 int g_psu_pending = 0;
 
+// J-05 tutorial grants (session only; cleared by reset with campaign/new game/sack).
+bool g_tutorial_toner_delivered = false;
+bool g_tutorial_psu_delivered = false;
+bool g_toner_teaching_complete = false;
+bool g_psu_teaching_complete = false;
+
 [[nodiscard]] int& stock_ref(carry::part part)
 {
     // toner/psu only; caller must not pass none.
@@ -111,6 +117,10 @@ void reset()
     g_psu_stock = starting_psu_stock;
     g_toner_pending = 0;
     g_psu_pending = 0;
+    g_tutorial_toner_delivered = false;
+    g_tutorial_psu_delivered = false;
+    g_toner_teaching_complete = false;
+    g_psu_teaching_complete = false;
 }
 
 void set_budget(int value)
@@ -172,6 +182,56 @@ void deliver_pending()
     {
         add_stock(carry::part::psu, g_psu_pending);
         g_psu_pending = 0;
+    }
+}
+
+void deliver_tutorials_for_day(int day)
+{
+    // Day 2: one free toner once per campaign; retry again if teaching never completed
+    // and the bin is empty (consumed/lost before the guaranteed install).
+    if(day == 2 && ! g_toner_teaching_complete)
+    {
+        if(! g_tutorial_toner_delivered)
+        {
+            add_stock(carry::part::toner, 1);
+            g_tutorial_toner_delivered = true;
+        }
+        else if(stock_of(carry::part::toner) == 0)
+        {
+            add_stock(carry::part::toner, 1);
+        }
+    }
+
+    // Day 3: same rule for PSU.
+    if(day == 3 && ! g_psu_teaching_complete)
+    {
+        if(! g_tutorial_psu_delivered)
+        {
+            add_stock(carry::part::psu, 1);
+            g_tutorial_psu_delivered = true;
+        }
+        else if(stock_of(carry::part::psu) == 0)
+        {
+            add_stock(carry::part::psu, 1);
+        }
+    }
+}
+
+void mark_teaching_incident_complete(carry::part part)
+{
+    switch(part)
+    {
+    case carry::part::toner:
+        g_toner_teaching_complete = true;
+        break;
+
+    case carry::part::psu:
+        g_psu_teaching_complete = true;
+        break;
+
+    case carry::part::none:
+    default:
+        break;
     }
 }
 

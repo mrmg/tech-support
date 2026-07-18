@@ -13,11 +13,12 @@ Implementation order for the Tech Support GBA game.
 | G — Reputation & sacking | [phase-G.md](./phase-G.md) | **Complete** |
 | H — Juice & ship | [phase-H.md](./phase-H.md) | **Complete** |
 | I — Fun polish | [phase-I.md](./phase-I.md) | **Complete** |
+| J — Teaching days & equipment | [phase-J.md](./phase-J.md) | **Complete** |
 
 ## Sequencing
 
-**Recommended:** A → B → C → D → E → F → G → H → I.
+**Recommended:** A → B → C → D → E → F → G → H → I → J.
 
 **How to work tickets:** [docs/dev-workflow.md](../dev-workflow.md) — one sub-agent per ticket; logical commit after each success.
 
-**Design source:** [docs/superpowers/specs/2026-07-18-tech-support-gba-design.md](../superpowers/specs/2026-07-18-tech-support-gba-design.md)
+**Design sources:** [original game design](../superpowers/specs/2026-07-18-tech-support-gba-design.md) · [Phase J teaching-days design](../superpowers/specs/2026-07-18-teaching-days-equipment-design.md)

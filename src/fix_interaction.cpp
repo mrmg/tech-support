@@ -5,6 +5,7 @@
 #include "bn_sprite_tiles_ptr.h"
 
 #include "bn_sprite_items_desk.h"
+#include "bn_sprite_items_printer.h"
 #include "bn_sprite_items_progress_bar.h"
 
 #include "inventory.h"
@@ -19,15 +20,25 @@ namespace
 constexpr int bar_frame_count = 9;
 constexpr bn::fixed bar_offset_y = -28;
 
-// I-05: red empty track while wrong/missing part; brief bounce + desk flash after a fix.
+// I-05: red empty track while wrong/missing part; brief bounce + target flash after a fix.
 constexpr int success_pop_frames = 14;
 constexpr bn::fixed success_pop_scale_peak = 1.35;
 constexpr bn::fixed deny_fade_intensity = 0.9;
 constexpr bn::color deny_fade_color(31, 4, 4);
 
-[[nodiscard]] int desk_in_fix_range(const bn::fixed_point& player_pos, const ticket::spawner& tickets)
+[[nodiscard]] bn::fixed_point target_center(int target_id)
 {
-    int best_desk = -1;
+    if(printer::is_target_id(target_id))
+    {
+        return printer::definition_table[printer::index_from_target(target_id)].center;
+    }
+
+    return desk::definition_table[target_id].center;
+}
+
+[[nodiscard]] int target_in_fix_range(const bn::fixed_point& player_pos, const ticket::spawner& tickets)
+{
+    int best_target = -1;
     bn::fixed best_dist_sq = 0;
 
     for(int desk_id = 0; desk_id < desk::count; ++desk_id)
@@ -43,6 +54,12 @@ constexpr bn::color deny_fade_color(31, 4, 4);
             continue;
         }
 
+        // Toner faults never bind to desks; skip if a desk somehow has needs_toner.
+        if(tickets.issue_type_for_desk(desk_id) == ticket::type::needs_toner)
+        {
+            continue;
+        }
+
         if(! desk::interact_range_at(desk_id).contains(player_pos))
         {
             continue;
@@ -51,14 +68,44 @@ constexpr bn::color deny_fade_color(31, 4, 4);
         const bn::fixed_point delta = desk::definition_table[desk_id].center - player_pos;
         const bn::fixed dist_sq = delta.x() * delta.x() + delta.y() * delta.y();
 
-        if(best_desk < 0 || dist_sq < best_dist_sq)
+        if(best_target < 0 || dist_sq < best_dist_sq)
         {
-            best_desk = desk_id;
+            best_target = desk_id;
             best_dist_sq = dist_sq;
         }
     }
 
-    return best_desk;
+    for(int index = 0; index < printer::count; ++index)
+    {
+        const int id = printer::target_id(index);
+
+        if(! tickets.desk_has_open_ticket(id))
+        {
+            continue;
+        }
+
+        // Printers accept toner only — PSU is computer-desk only (J-06).
+        if(tickets.issue_type_for_desk(id) != ticket::type::needs_toner)
+        {
+            continue;
+        }
+
+        if(! printer::interact_range_at(index).contains(player_pos))
+        {
+            continue;
+        }
+
+        const bn::fixed_point delta = printer::definition_table[index].center - player_pos;
+        const bn::fixed dist_sq = delta.x() * delta.x() + delta.y() * delta.y();
+
+        if(best_target < 0 || dist_sq < best_dist_sq)
+        {
+            best_target = id;
+            best_dist_sq = dist_sq;
+        }
+    }
+
+    return best_target;
 }
 
 [[nodiscard]] int bar_graphics_index(int progress_frames)
@@ -99,26 +146,26 @@ constexpr bn::color deny_fade_color(31, 4, 4);
 
 hold_to_reboot::hold_to_reboot() :
     _progress_frames(0),
-    _active_desk_id(-1),
+    _active_target_id(-1),
     _success_frames(0),
-    _success_desk_id(-1)
+    _success_target_id(-1)
 {
 }
 
 void hold_to_reboot::reset()
 {
     _progress_frames = 0;
-    _active_desk_id = -1;
+    _active_target_id = -1;
     _success_frames = 0;
-    _success_desk_id = -1;
-    _clear_success_desk_flash();
+    _success_target_id = -1;
+    _clear_success_target_flash();
     _restore_bar_look();
     _hide_bar();
 }
 
 void hold_to_reboot::update(const bn::fixed_point& player_pos, ticket::spawner& tickets,
                             carry::slot& carried, const bn::camera_ptr& camera,
-                            bn::span<desk::entity> desks)
+                            bn::span<desk::entity> desks, bn::span<printer::entity> printers)
 {
     // I-05: finish the success bounce even if A was released.
     if(_success_frames > 0)
@@ -133,48 +180,62 @@ void hold_to_reboot::update(const bn::fixed_point& player_pos, ticket::spawner& 
         return;
     }
 
-    const int desk_id = desk_in_fix_range(player_pos, tickets);
+    const int target_id = target_in_fix_range(player_pos, tickets);
 
-    if(desk_id < 0)
+    if(target_id < 0)
     {
         reset();
         return;
     }
 
-    const ticket::type issue = tickets.issue_type_for_desk(desk_id);
+    const ticket::type issue = tickets.issue_type_for_desk(target_id);
 
     // Needs-part: wrong/missing → no progress, obvious red empty-bar deny.
     if(ticket::requires_part(issue) && carried.held() != ticket::required_part(issue))
     {
         _progress_frames = 0;
-        _active_desk_id = desk_id;
-        _show_deny_bar(desk_id, camera);
+        _active_target_id = target_id;
+        _show_deny_bar(target_id, camera);
         return;
     }
 
-    if(desk_id != _active_desk_id)
+    if(target_id != _active_target_id)
     {
         _progress_frames = 0;
-        _active_desk_id = desk_id;
+        _active_target_id = target_id;
     }
 
     ++_progress_frames;
     _restore_bar_look();
-    _show_bar(desk_id, _progress_frames, camera);
+    _show_bar(target_id, _progress_frames, camera);
 
     if(_progress_frames >= reboot::hold_duration_frames)
     {
-        tickets.clear_desk(desk_id);
+        tickets.clear_desk(target_id);
 
         if(ticket::requires_part(issue))
         {
             // F-01: install permanently spends one unit of matching stock.
-            inventory::consume(carried.held());
+            const carry::part installed = carried.held();
+            inventory::consume(installed);
+            // J-05: teaching delivery no longer re-grants after a successful install.
+            inventory::mark_teaching_incident_complete(installed);
             carried.clear();
         }
 
         sfx::play_fix_complete();
-        _begin_success_pop(desk_id, camera, desks[desk_id]);
+
+        if(printer::is_target_id(target_id))
+        {
+            printer::entity& printer_entity = printers[printer::index_from_target(target_id)];
+            _begin_success_pop(target_id, camera, printer_entity.sprite(),
+                               bn::sprite_items::printer.palette_item());
+        }
+        else
+        {
+            _begin_success_pop(target_id, camera, desks[target_id].sprite(),
+                               bn::sprite_items::desk.palette_item());
+        }
     }
 }
 
@@ -197,18 +258,19 @@ void hold_to_reboot::_restore_bar_look()
     _bar->set_scale(1);
 }
 
-void hold_to_reboot::_clear_success_desk_flash()
+void hold_to_reboot::_clear_success_target_flash()
 {
-    if(_success_desk_sprite)
+    if(_success_target_sprite && _success_restore_palette)
     {
-        _success_desk_sprite->set_palette(bn::sprite_items::desk.palette_item());
-        _success_desk_sprite.reset();
+        _success_target_sprite->set_palette(*_success_restore_palette);
+        _success_target_sprite.reset();
+        _success_restore_palette.reset();
     }
 }
 
-void hold_to_reboot::_show_bar(int desk_id, int progress_frames, const bn::camera_ptr& camera)
+void hold_to_reboot::_show_bar(int target_id, int progress_frames, const bn::camera_ptr& camera)
 {
-    const bn::fixed_point world = desk::definition_table[desk_id].center;
+    const bn::fixed_point world = target_center(target_id);
     const bn::fixed_point pos(world.x(), world.y() + bar_offset_y);
     const int graphics_index = bar_graphics_index(progress_frames);
 
@@ -229,9 +291,9 @@ void hold_to_reboot::_show_bar(int desk_id, int progress_frames, const bn::camer
     }
 }
 
-void hold_to_reboot::_show_deny_bar(int desk_id, const bn::camera_ptr& camera)
+void hold_to_reboot::_show_deny_bar(int target_id, const bn::camera_ptr& camera)
 {
-    _show_bar(desk_id, 0, camera);
+    _show_bar(target_id, 0, camera);
 
     // Unique cached palette so the red fade does not tint the rack progress bar.
     if(! _deny_palette)
@@ -246,24 +308,25 @@ void hold_to_reboot::_show_deny_bar(int desk_id, const bn::camera_ptr& camera)
     _bar->set_scale(1);
 }
 
-void hold_to_reboot::_begin_success_pop(int desk_id, const bn::camera_ptr& camera, desk::entity& desk)
+void hold_to_reboot::_begin_success_pop(int target_id, const bn::camera_ptr& camera,
+                                        bn::sprite_ptr& target_sprite,
+                                        const bn::sprite_palette_item& restore_palette)
 {
     _progress_frames = 0;
-    _active_desk_id = -1;
-    _success_desk_id = desk_id;
+    _active_target_id = -1;
+    _success_target_id = target_id;
     _success_frames = success_pop_frames;
 
-    // Brief inverted desk flash (unique palette — shared desk palette stays untouched).
-    _clear_success_desk_flash();
-    bn::sprite_ptr desk_sprite = desk.sprite();
-    bn::sprite_palette_ptr flash_palette =
-        bn::sprite_palette_ptr::create_new(bn::sprite_items::desk.palette_item());
+    // Brief inverted flash (unique palette — shared target palette stays untouched).
+    _clear_success_target_flash();
+    bn::sprite_palette_ptr flash_palette = bn::sprite_palette_ptr::create_new(restore_palette);
     flash_palette.set_inverted(true);
-    desk_sprite.set_palette(flash_palette);
-    _success_desk_sprite = desk_sprite;
+    target_sprite.set_palette(flash_palette);
+    _success_target_sprite = target_sprite;
+    _success_restore_palette = restore_palette;
 
     _restore_bar_look();
-    _show_bar(desk_id, reboot::hold_duration_frames, camera);
+    _show_bar(target_id, reboot::hold_duration_frames, camera);
     _bar->set_scale(success_pop_scale(_success_frames));
 }
 
@@ -277,7 +340,7 @@ void hold_to_reboot::_tick_success_pop(const bn::camera_ptr& camera)
         return;
     }
 
-    _show_bar(_success_desk_id, reboot::hold_duration_frames, camera);
+    _show_bar(_success_target_id, reboot::hold_duration_frames, camera);
     _bar->set_scale(success_pop_scale(_success_frames));
 }
 

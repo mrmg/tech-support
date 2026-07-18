@@ -4,7 +4,11 @@
 #include "bn_fixed.h"
 #include "bn_fixed_point.h"
 
-#include "bn_sprite_items_issue_icon.h"
+#include "bn_sprite_items_part_icon.h"
+#include "bn_sprite_items_ticket_badge.h"
+#include "closet.h"
+#include "desk.h"
+#include "printer.h"
 #include "server_rack.h"
 
 namespace world_cues
@@ -24,6 +28,11 @@ constexpr bn::fixed on_screen_margin_y = 24;
 constexpr int flash_base_period = 36;
 constexpr int flash_min_period = 8;
 constexpr int flash_urgency_step = 3;
+
+// Art key: >= 100 → part_icon frame (key - 100); else ticket_badge frame.
+// Matches desk/printer badge + bin + carry glyph contract (J-04 / J-06).
+constexpr int part_art_base = 100;
+constexpr int no_art_key = -1;
 
 [[nodiscard]] int flash_period_for_urgency(int urgency_level)
 {
@@ -97,6 +106,12 @@ constexpr int flash_urgency_step = 3;
                            clamp_fixed(screen_pos.y(), min_y, max_y));
 }
 
+[[nodiscard]] bool is_known_target(int target_id)
+{
+    return (target_id >= 0 && target_id < desk::count) || printer::is_target_id(target_id) ||
+           ticket::is_global_server_target(target_id);
+}
+
 // Resolve where the edge icon should point for this ticket in the active room.
 // Cross-room tickets cue the door on the current map (no pathfinding).
 [[nodiscard]] bn::fixed_point cue_world_target(const ticket::instance& entry, room::id current_room)
@@ -116,11 +131,45 @@ constexpr int flash_urgency_step = 3;
 
     if(current_room == room::id::office)
     {
-        return desk::definition_table[entry.desk_id].center;
+        if(printer::is_target_id(entry.target_id))
+        {
+            return printer::definition_table[printer::index_from_target(entry.target_id)].center;
+        }
+
+        return desk::definition_table[entry.target_id].center;
     }
 
-    // Server room + office desk ticket: guide back through the return door.
+    // Server room + office desk/printer ticket: guide back through the return door.
     return room::door_zone(room::id::server).position();
+}
+
+[[nodiscard]] int cue_art_key(ticket::type issue_type)
+{
+    switch(issue_type)
+    {
+    case ticket::type::needs_toner:
+        return part_art_base + closet::toner_tiles_index;
+
+    case ticket::type::needs_psu:
+        return part_art_base + closet::psu_tiles_index;
+
+    case ticket::type::needs_server_reset:
+        return desk::badge_server;
+
+    case ticket::type::reboot:
+    default:
+        return desk::badge_reboot;
+    }
+}
+
+[[nodiscard]] bn::sprite_ptr create_cue_sprite(int art_key, const bn::fixed_point& pos)
+{
+    if(art_key >= part_art_base)
+    {
+        return bn::sprite_items::part_icon.create_sprite(pos, art_key - part_art_base);
+    }
+
+    return bn::sprite_items::ticket_badge.create_sprite(pos, art_key);
 }
 
 }
@@ -128,16 +177,17 @@ constexpr int flash_urgency_step = 3;
 edge_indicators::edge_indicators() :
     _flash_frame(0)
 {
-    for(int index = 0; index < desk::count; ++index)
+    for(int index = 0; index < ticket::max_open; ++index)
     {
         _icons.emplace_back();
+        _icon_keys.push_back(no_art_key);
     }
 }
 
 void edge_indicators::update(bn::span<const ticket::instance> open_tickets,
                              const bn::camera_ptr& camera, bool enabled, room::id current_room)
 {
-    bool slot_used[desk::count] = {};
+    bool slot_used[ticket::max_open] = {};
 
     ++_flash_frame;
 
@@ -147,7 +197,7 @@ void edge_indicators::update(bn::span<const ticket::instance> open_tickets,
 
         for(const ticket::instance& entry : open_tickets)
         {
-            if(! entry.open || entry.desk_id < 0 || entry.desk_id >= desk::count)
+            if(! entry.open || ! is_known_target(entry.target_id))
             {
                 continue;
             }
@@ -160,18 +210,27 @@ void edge_indicators::update(bn::span<const ticket::instance> open_tickets,
                 continue;
             }
 
-            const int slot = entry.desk_id;
+            // Dense target ids 0..max_open-1 (desks, printers, global outage).
+            const int slot = entry.target_id;
+
+            if(slot < 0 || slot >= ticket::max_open)
+            {
+                continue;
+            }
+
             slot_used[slot] = true;
             const bn::fixed_point pos = edge_position(screen);
             const bn::fixed scale = scale_for_urgency(entry.urgency);
+            const int art_key = cue_art_key(entry.issue_type);
 
-            if(! _icons[slot])
+            if(! _icons[slot] || _icon_keys[slot] != art_key)
             {
-                bn::sprite_ptr icon = bn::sprite_items::issue_icon.create_sprite(pos);
+                bn::sprite_ptr icon = create_cue_sprite(art_key, pos);
                 icon.set_bg_priority(0);
                 icon.set_z_order(-10);
                 icon.set_scale(scale);
                 _icons[slot] = icon;
+                _icon_keys[slot] = art_key;
             }
             else
             {
@@ -193,7 +252,7 @@ void edge_indicators::update(bn::span<const ticket::instance> open_tickets,
         }
     }
 
-    for(int index = 0; index < desk::count; ++index)
+    for(int index = 0; index < ticket::max_open; ++index)
     {
         if(_icons[index] && ! slot_used[index])
         {

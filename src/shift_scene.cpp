@@ -6,10 +6,13 @@
 #include "bn_color.h"
 #include "bn_core.h"
 #include "bn_keypad.h"
+#include "bn_optional.h"
 #include "bn_regular_bg_ptr.h"
+#include "bn_span.h"
 #include "bn_sprite_palette_item.h"
 #include "bn_sprite_ptr.h"
 #include "bn_sprite_text_generator.h"
+#include "bn_sprite_tiles_ptr.h"
 #include "bn_string.h"
 #include "bn_vector.h"
 
@@ -17,6 +20,7 @@
 #include "campaign.h"
 #include "carry.h"
 #include "closet.h"
+#include "coffee.h"
 #include "common_variable_8x16_sprite_font.h"
 #include "credits_scene.h"
 #include "day_intro_scene.h"
@@ -26,6 +30,7 @@
 #include "music.h"
 #include "notepad.h"
 #include "player.h"
+#include "printer.h"
 #include "reputation.h"
 #include "room.h"
 #include "sacked_scene.h"
@@ -36,6 +41,8 @@
 #include "shop_scene.h"
 #include "ticket.h"
 #include "world_cues.h"
+
+#include "bn_sprite_items_energy_bar.h"
 
 namespace
 {
@@ -86,6 +93,11 @@ constexpr bn::fixed timer_hud_y = -72;
 // G-02: top-right danger line when near_sack (anger static for the shift).
 constexpr bn::fixed danger_hud_x = 112;
 constexpr bn::fixed danger_hud_y = -72;
+// J-08: small energy bar under Day HUD (screen-fixed).
+constexpr bn::fixed energy_hud_x = -96;
+constexpr bn::fixed energy_hud_y = -58;
+constexpr int energy_bar_frame_count = 9;
+constexpr int energy_blink_half_period = 8;
 
 // Red HUD ink (font index 0 = transparent key).
 constexpr bn::color danger_hud_colors[] = {
@@ -190,6 +202,61 @@ void draw_danger_hud(bn::ivector<bn::sprite_ptr>& danger_sprites)
     danger_text.generate(danger_hud_x, danger_hud_y, "HR!", danger_sprites);
 }
 
+// J-08: map energy → energy_bar frame (0 empty … 8 full). Blink near exhaustion.
+[[nodiscard]] int energy_bar_graphics_index(int energy)
+{
+    if(energy <= 0)
+    {
+        return 0;
+    }
+
+    int filled = (energy * (energy_bar_frame_count - 1) + player::max_energy - 1) / player::max_energy;
+
+    if(filled < 1)
+    {
+        filled = 1;
+    }
+
+    if(filled > energy_bar_frame_count - 1)
+    {
+        filled = energy_bar_frame_count - 1;
+    }
+
+    return filled;
+}
+
+void sync_energy_hud(bn::optional<bn::sprite_ptr>& energy_bar, int energy, bool blink_on)
+{
+    const bool warn = energy <= player::warn_energy;
+    const bool hide_blink = warn && ! blink_on;
+
+    if(hide_blink)
+    {
+        if(energy_bar)
+        {
+            energy_bar->set_visible(false);
+        }
+
+        return;
+    }
+
+    const int graphics_index = energy_bar_graphics_index(energy);
+
+    if(! energy_bar)
+    {
+        bn::sprite_ptr bar =
+            bn::sprite_items::energy_bar.create_sprite(energy_hud_x, energy_hud_y, graphics_index);
+        bar.set_bg_priority(0);
+        bar.set_z_order(-50);
+        energy_bar = bar;
+    }
+    else
+    {
+        energy_bar->set_tiles(bn::sprite_items::energy_bar.tiles_item().create_tiles(graphics_index));
+        energy_bar->set_visible(true);
+    }
+}
+
 // A = continue (retry / next day / restart); B = title.
 // Results notepad: Day N, OK/X list, %, pass/fail/complete (threshold in shift_results.h).
 shift_end_choice show_shift_over_screen(const shift_summary& summary)
@@ -264,14 +331,26 @@ void apply_shift_campaign_progress(const shift_summary& summary)
 }
 
 void set_main_floor_entities_visible(bn::vector<desk::entity, desk::count>& desks,
-                                     closet::entity& storage_closet, bool visible)
+                                     bn::vector<printer::entity, printer::count>& printers,
+                                     bn::span<closet::bin> supply_bins, coffee::station& coffee_station,
+                                     bool visible)
 {
     for(desk::entity& desk_entity : desks)
     {
         desk_entity.set_visible(visible);
     }
 
-    storage_closet.sprite().set_visible(visible);
+    for(printer::entity& printer_entity : printers)
+    {
+        printer_entity.set_visible(visible);
+    }
+
+    for(closet::bin& supply_bin : supply_bins)
+    {
+        supply_bin.set_visible(visible);
+    }
+
+    coffee_station.set_visible(visible);
 }
 
 // I-02: map open ticket kind → ticket_badge frame (server-reset still badges the desk).
@@ -294,18 +373,20 @@ void set_main_floor_entities_visible(bn::vector<desk::entity, desk::count>& desk
     }
 }
 
-// E-01/E-02: instant room swap — BG + solids; closet office-only; rack server-only.
+// E-01/E-02: instant room swap — BG + solids; bins/printers/coffee office-only; rack server-only.
 void transition_to_room(room::id destination, bn::regular_bg_ptr& floor_bg, bn::camera_ptr& camera,
                         player& walk_player, bn::vector<desk::entity, desk::count>& desks,
-                        closet::entity& storage_closet, server_rack::entity& rack,
-                        room::id& current_room)
+                        bn::vector<printer::entity, printer::count>& printers,
+                        bn::span<closet::bin> supply_bins, coffee::station& coffee_station,
+                        server_rack::entity& rack, room::id& current_room)
 {
     current_room = destination;
     floor_bg = room::create_background(current_room);
     floor_bg.set_priority(3);
     floor_bg.set_camera(camera);
     walk_player.set_position(room::enter_spawn(current_room));
-    set_main_floor_entities_visible(desks, storage_closet, current_room == room::id::office);
+    set_main_floor_entities_visible(desks, printers, supply_bins, coffee_station,
+                                    current_room == room::id::office);
     rack.set_visible(current_room == room::id::server);
 }
 
@@ -330,18 +411,39 @@ shift_summary play_one_shift()
         desks.back().set_camera(camera);
     }
 
-    // D-01: storage cupboard on main office floor only (hidden while in server room).
-    closet::entity storage_closet;
-    storage_closet.set_camera(camera);
+    // J-03: two printers at opposite ends of the office floor.
+    bn::vector<printer::entity, printer::count> printers;
+
+    for(int index = 0; index < printer::count; ++index)
+    {
+        printers.emplace_back(index);
+        printers.back().set_camera(camera);
+    }
+
+    // J-04: adjacent toner + PSU bins on main office floor only (hidden in server room).
+    bn::vector<closet::bin, closet::count> supply_bins;
+
+    for(int index = 0; index < closet::count; ++index)
+    {
+        supply_bins.emplace_back(index);
+        supply_bins.back().set_camera(camera);
+    }
+
+    // J-08: coffee station on office floor (hold-A brew refills sprint energy).
+    coffee::station coffee_station;
+    coffee_station.set_camera(camera);
 
     // E-02: server rack in server room only (hold-A sets server_reset_done for the shift).
     server_rack::entity rack;
     rack.set_camera(camera);
     rack.set_visible(false);
 
-    // D-02/I-04: one carried part (closet A pick/replace, B return; icon follows player).
+    // D-02/I-04/J-04: one carried part (bin A collect/swap, matching B return; icon follows).
     carry::slot carried;
     carried.set_camera(camera);
+
+    // J-08: energy starts full every shift including retries (fresh player + explicit refill).
+    walk_player.refill_energy();
 
     // C-03: day index selects spawn + shift length (Day 1 == Phase A baseline).
     const campaign::day_difficulty day = campaign::difficulty_for_day(campaign::current_day());
@@ -364,12 +466,17 @@ shift_summary play_one_shift()
     bn::vector<bn::sprite_ptr, 8> day_sprites;
     bn::vector<bn::sprite_ptr, 8> timer_sprites;
     bn::vector<bn::sprite_ptr, 8> danger_sprites;
+    bn::optional<bn::sprite_ptr> energy_bar;
     draw_day_hud(hud_text, day_sprites);
     draw_danger_hud(danger_sprites);
+    sync_energy_hud(energy_bar, walk_player.energy(), true);
 
     int remaining_frames = day.shift_duration_seconds * shift::frames_per_second;
     int shown_seconds = -1;
     bool shown_timer_blink_on = true;
+    int shown_energy = -1;
+    bool shown_energy_blink_on = true;
+    int energy_blink_frames = 0;
 
     bn::size map_dims = room::map_dimensions(current_room);
     update_camera_follow(camera, walk_player.position(), map_dims);
@@ -386,41 +493,77 @@ shift_summary play_one_shift()
             }
         }
 
-        // While notepad is open: pause shift timer, spawn/urgency clocks, movement, and fix.
+        // While notepad is open: pause shift timer, spawn/urgency, movement, sprint drain, brew, fix.
         if(tickets_pad.is_open())
         {
             reboot_fix.reset();
             rack.cancel_hold();
+            coffee_station.cancel_brew();
         }
         else
         {
             walk_player.update(room::solid_boxes(current_room));
 
-            // Door zone → other room (instant). Closet / desks office-only; rack server-only.
+            // Door zone → other room (instant). Bins / desks / coffee office-only; rack server-only.
             if(room::door_zone(current_room).contains(walk_player.position()))
             {
                 transition_to_room(room::other(current_room), floor_bg, camera, walk_player, desks,
-                                   storage_closet, rack, current_room);
+                                   printers, bn::span<closet::bin>(supply_bins.data(), supply_bins.size()),
+                                   coffee_station, rack, current_room);
                 map_dims = room::map_dimensions(current_room);
                 reboot_fix.reset();
+                coffee_station.cancel_brew();
             }
 
             tickets.update();
 
             if(current_room == room::id::office)
             {
-                // I-06: same interact range as carry pickup.
-                storage_closet.set_in_range(storage_closet.in_interact_range(walk_player.position()));
-                // Closet pickup before hold-to-fix so A pressed at cupboard fills carry.
-                carried.update_at_closet(walk_player.position(), storage_closet);
-                reboot_fix.update(walk_player.position(), tickets, carried, camera,
-                                   bn::span<desk::entity>(desks.data(), desks.size()));
+                bn::span<closet::bin> bins_span(supply_bins.data(), supply_bins.size());
+                // I-06/J-04: highlight only the nearest bin in interact range.
+                closet::update_range_highlights(walk_player.position(), bins_span);
+
+                for(closet::bin& supply_bin : supply_bins)
+                {
+                    supply_bin.sync_stock();
+                    supply_bin.update();
+                }
+
+                const bool at_coffee = coffee_station.in_interact_range(walk_player.position());
+                coffee_station.set_in_range(at_coffee);
+
+                // Coffee hold-A wins in its range so brew never fights bin A or desk fix.
+                if(at_coffee)
+                {
+                    reboot_fix.reset();
+
+                    if(coffee_station.update_brew(walk_player.position(), camera))
+                    {
+                        walk_player.refill_energy();
+                        sfx::play_fix_complete();
+                    }
+                }
+                else
+                {
+                    coffee_station.cancel_brew();
+                    // Bin pickup before hold-to-fix so A pressed at a bin fills carry.
+                    carried.update_at_bins(walk_player.position(), bins_span);
+                    reboot_fix.update(walk_player.position(), tickets, carried, camera,
+                                       bn::span<desk::entity>(desks.data(), desks.size()),
+                                       bn::span<printer::entity>(printers.data(), printers.size()));
+                }
             }
             else
             {
-                storage_closet.set_in_range(false);
+                for(closet::bin& supply_bin : supply_bins)
+                {
+                    supply_bin.set_in_range(false);
+                }
+
+                coffee_station.set_in_range(false);
+                coffee_station.cancel_brew();
                 reboot_fix.reset();
-                // E-02/E-03: hold-A at rack → green LEDs; completing clears open reset-server tickets.
+                // E-02/E-03/J-07: hold-A at rack → green LEDs; clears the one global outage.
                 const bool rack_was_done = rack.server_reset_done();
                 rack.update(walk_player.position(), camera);
 
@@ -431,7 +574,7 @@ shift_summary play_one_shift()
                 }
             }
 
-            // If a reset-server ticket spawns after an earlier rack clear, re-arm the rack.
+            // Outage open after an earlier rack clear → re-arm (Day 4 only schedules one).
             if(tickets.has_open_server_reset() && rack.server_reset_done())
             {
                 rack.reset_shift();
@@ -442,14 +585,21 @@ shift_summary play_one_shift()
 
         carried.update_follow(walk_player.position());
 
+        // J-07: one global outage paints every computer with the shared server error.
+        const bool outage_active = tickets.has_open_server_reset();
+        const int outage_urgency = tickets.server_outage_urgency();
+
         for(int index = 0; index < desk::count; ++index)
         {
             const bool open = tickets.desk_has_open_ticket(index);
-            desks[index].set_broken(open);
-            desks[index].set_urgency(tickets.urgency_for_desk(index));
+            desks[index].set_broken(open || outage_active);
+            desks[index].set_urgency(outage_active ? outage_urgency : tickets.urgency_for_desk(index));
 
-            // Type bubble above the desk while the ticket is open (incl. server-reset).
-            if(open)
+            if(outage_active)
+            {
+                desks[index].set_type_badge(desk::badge_server);
+            }
+            else if(open)
             {
                 desks[index].set_type_badge(type_badge_tiles(tickets.issue_type_for_desk(index)));
             }
@@ -461,9 +611,28 @@ shift_summary play_one_shift()
             desks[index].update();
         }
 
+        for(int index = 0; index < printer::count; ++index)
+        {
+            const int target_id = printer::target_id(index);
+            const bool open = tickets.desk_has_open_ticket(target_id);
+            printers[index].set_broken(open);
+            printers[index].set_urgency(tickets.urgency_for_desk(target_id));
+
+            if(open)
+            {
+                printers[index].set_type_badge(type_badge_tiles(tickets.issue_type_for_desk(target_id)));
+            }
+            else
+            {
+                printers[index].clear_type_badge();
+            }
+
+            printers[index].update();
+        }
+
         update_camera_follow(camera, walk_player.position(), map_dims);
 
-        // Edge issue icons toward actionable target (desk/rack) or the door if other room.
+        // Edge issue icons toward actionable target (desk/printer/rack) or the door if other room.
         edge_cues.update(tickets.open_tickets(), camera, ! tickets_pad.is_open(), current_room);
 
         const int remaining_seconds =
@@ -478,6 +647,21 @@ shift_summary play_one_shift()
             shown_seconds = remaining_seconds;
             shown_timer_blink_on = timer_blink_on;
             redraw_timer_hud(hud_text, timer_sprites, remaining_seconds, timer_blink_on);
+        }
+
+        // J-08: energy bar; blink when low / exhausted (ticks even while notepad pauses shift).
+        ++energy_blink_frames;
+        const int energy = walk_player.energy();
+        const bool energy_blink_on = ((energy_blink_frames / energy_blink_half_period) % 2) == 0;
+        const bool energy_needs_redraw =
+            energy != shown_energy ||
+            (energy <= player::warn_energy && energy_blink_on != shown_energy_blink_on);
+
+        if(energy_needs_redraw)
+        {
+            shown_energy = energy;
+            shown_energy_blink_on = energy_blink_on;
+            sync_energy_hud(energy_bar, energy, energy_blink_on);
         }
 
         bn::core::update();
@@ -504,6 +688,9 @@ void run_shift_scene()
 {
     while(true)
     {
+        // J-05: free Day 2 toner / Day 3 PSU before intro (once per campaign; safe retry).
+        inventory::deliver_tutorials_for_day(campaign::current_day());
+
         // C-05: brief Day N card before every shift (title start, retry, next day).
         run_day_intro_scene();
 

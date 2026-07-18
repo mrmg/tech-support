@@ -15,10 +15,10 @@ namespace inventory
 {
 
 // Named starting values for a new run (title SELECT / boot / campaign-complete reset).
-// H-04: +1 toner so Day 1 parts pressure is fair before the first shop.
+// J-05: new campaigns start with empty bins; Day 2/3 tutorial deliveries supply the first parts.
 inline constexpr int starting_budget = 100;
-inline constexpr int starting_toner_stock = 4;
-inline constexpr int starting_psu_stock = 2;
+inline constexpr int starting_toner_stock = 0;
+inline constexpr int starting_psu_stock = 0;
 
 // F-02 earn constants (integer arithmetic; truncates toward zero).
 // Pass: pass_earn_base + completion_percent / pass_earn_divisor
@@ -47,7 +47,7 @@ inline constexpr int psu_price = 25;
 // Desk install path: permanently spend one unit. Returns false if none/zero stock.
 bool consume(carry::part part);
 
-// New run: restore starting budget + stock; clear pending orders.
+// New run: restore starting budget + stock; clear pending + tutorial flags.
 void reset();
 
 void set_budget(int value);
@@ -63,6 +63,15 @@ bool try_buy(carry::part part);
 // F-04: apply all pending orders to closet stock, then clear pending.
 // Call once when the campaign advances to the next day (not on fail / same-day retry).
 void deliver_pending();
+
+// J-05: free tutorial stock at Day 2 (toner) / Day 3 (PSU) start.
+// Once per campaign; re-delivers on retry if teaching install never completed and bin is empty.
+// Does not touch budget or pending shop orders. Call before each day intro / shift.
+void deliver_tutorials_for_day(int day);
+
+// J-05: mark the matching teaching incident complete so retries do not re-grant stock.
+// Call after a successful needs-part install consumes toner/PSU.
+void mark_teaching_incident_complete(carry::part part);
 
 // F-02: grant amount for one finished shift after Phase B evaluate (75% gate).
 // Pass always grants more than fail (fail % is always below the pass threshold).

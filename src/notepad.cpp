@@ -11,6 +11,7 @@
 #include "campaign.h"
 #include "common_variable_8x16_sprite_font.h"
 #include "desk.h"
+#include "printer.h"
 #include "reputation.h"
 #include "sfx.h"
 #include "shift_results.h"
@@ -71,14 +72,29 @@ constexpr bn::array<bn::string_view, desk::count> desk_labels = {
     "Desk 4",
 };
 
-[[nodiscard]] bn::string_view desk_label(int desk_id)
+constexpr bn::array<bn::string_view, printer::count> printer_labels = {
+    "Printer 1",
+    "Printer 2",
+};
+
+[[nodiscard]] bn::string_view target_label(int target_id)
 {
-    if(desk_id < 0 || desk_id >= desk::count)
+    if(target_id >= 0 && target_id < desk::count)
     {
-        return "Desk ?";
+        return desk_labels[target_id];
     }
 
-    return desk_labels[desk_id];
+    if(printer::is_target_id(target_id))
+    {
+        return printer_labels[printer::index_from_target(target_id)];
+    }
+
+    if(ticket::is_global_server_target(target_id))
+    {
+        return "Server";
+    }
+
+    return "Target ?";
 }
 
 // Clear urgency readout: digit plus bangs as pressure climbs (still fixable at max).
@@ -199,9 +215,13 @@ void overlay::_draw_list(bn::span<const ticket::instance> open_tickets)
         }
 
         const bn::fixed y = first_row_y + row * row_step;
-        bn::string<24> left_line;
-        left_line.append(desk_label(entry.desk_id));
-        left_line.append(' ');
+        bn::string<28> left_line;
+        // Global outage label already names the target; avoid "Server Server outage".
+        if(! ticket::is_global_server_target(entry.target_id))
+        {
+            left_line.append(target_label(entry.target_id));
+            left_line.append(' ');
+        }
         left_line.append(ticket::issue_label(entry.issue_type));
 
         _text_generator.set_left_alignment();
@@ -371,9 +391,13 @@ void results_overlay::_draw(bn::span<const ticket::history_entry> history, int f
         const ticket::history_entry& entry = history[index];
         const bn::fixed y = first_row_y + index * row_step;
 
-        bn::string<24> left_line;
-        left_line.append(desk_label(entry.desk_id));
-        left_line.append(' ');
+        bn::string<28> left_line;
+        // Global outage label already names the target; avoid "Server Server outage".
+        if(! ticket::is_global_server_target(entry.target_id))
+        {
+            left_line.append(target_label(entry.target_id));
+            left_line.append(' ');
+        }
         left_line.append(ticket::issue_label(entry.issue_type));
 
         _text_generator.set_left_alignment();

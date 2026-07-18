@@ -6,7 +6,8 @@
 #include "collision.h"
 
 player::player() :
-    _sprite(bn::sprite_items::player.create_sprite(0, 40))
+    _sprite(bn::sprite_items::player.create_sprite(0, 40)),
+    _energy(max_energy)
 {
 }
 
@@ -15,24 +16,35 @@ void player::update(bn::span<const bn::fixed_rect> solids)
     bn::fixed dx = 0;
     bn::fixed dy = 0;
 
+    const bool wants_move = bn::keypad::left_held() || bn::keypad::right_held() ||
+                            bn::keypad::up_held() || bn::keypad::down_held();
+    const bool wants_sprint = bn::keypad::r_held();
+    const bn::fixed speed = _current_speed(wants_sprint);
+
     if(bn::keypad::left_held())
     {
-        dx -= move_speed;
+        dx -= speed;
         _sprite.set_horizontal_flip(true);
     }
     else if(bn::keypad::right_held())
     {
-        dx += move_speed;
+        dx += speed;
         _sprite.set_horizontal_flip(false);
     }
 
     if(bn::keypad::up_held())
     {
-        dy -= move_speed;
+        dy -= speed;
     }
     else if(bn::keypad::down_held())
     {
-        dy += move_speed;
+        dy += speed;
+    }
+
+    // Sprint drains only while actually moving with R held and energy left.
+    if(wants_move && wants_sprint && _energy > 0)
+    {
+        --_energy;
     }
 
     const bn::fixed_point next =
@@ -63,6 +75,21 @@ void player::_update_animation(bool moving)
     }
 }
 
+bn::fixed player::_current_speed(bool wants_sprint) const
+{
+    if(_energy <= 0)
+    {
+        return exhausted_speed;
+    }
+
+    if(wants_sprint)
+    {
+        return sprint_speed;
+    }
+
+    return move_speed;
+}
+
 void player::set_position(const bn::fixed_point& position)
 {
     _sprite.set_position(position);
@@ -77,3 +104,24 @@ bn::sprite_ptr& player::sprite()
 {
     return _sprite;
 }
+
+void player::refill_energy()
+{
+    _energy = max_energy;
+}
+
+int player::energy() const
+{
+    return _energy;
+}
+
+bool player::is_exhausted() const
+{
+    return _energy <= 0;
+}
+
+bool player::is_low_energy() const
+{
+    return _energy > 0 && _energy <= warn_energy;
+}
+

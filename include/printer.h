@@ -1,5 +1,5 @@
-#ifndef DESK_H
-#define DESK_H
+#ifndef PRINTER_H
+#define PRINTER_H
 
 #include "bn_array.h"
 #include "bn_camera_ptr.h"
@@ -10,28 +10,28 @@
 #include "bn_span.h"
 #include "bn_sprite_ptr.h"
 
-// Data-driven coworker desks: solids, interact ranges, idle/broken visuals.
-namespace desk
+#include "desk.h"
+
+// Office floor printers: solids, interact ranges, idle/broken visuals (J-03).
+// Toner tickets bind here — never to computer desks.
+namespace printer
 {
 
-constexpr int count = 4;
+constexpr int count = 2;
 
-constexpr bn::fixed solid_width = 40;
+// Ticket target IDs: desks use 0..desk::count-1; printers follow.
+constexpr int target_id_base = desk::count;
+
+constexpr bn::fixed solid_width = 36;
 constexpr bn::fixed solid_height = 28;
 
-// Slightly larger than the solid so the player can stand beside the desk.
-constexpr bn::fixed interact_width = 56;
+constexpr bn::fixed interact_width = 52;
 constexpr bn::fixed interact_height = 44;
 
-// I-02: type badge floats just above the desk sprite.
 constexpr bn::fixed type_badge_y_offset = 22;
 
-// Badge selectors for set_type_badge. Reboot/server use ticket_badge frames;
-// toner/PSU map to part_icon frames 0/1 (shared with supply bins + carry — J-04).
-constexpr int badge_reboot = 0;
-constexpr int badge_toner = 1;
-constexpr int badge_psu = 2;
-constexpr int badge_server = 3;
+// Toner badge selector → part_icon frame 0 (shared with bin + carry — J-04).
+constexpr int badge_toner = desk::badge_toner;
 
 enum class visual_state
 {
@@ -44,13 +44,26 @@ struct definition
     bn::fixed_point center;
 };
 
-// Source of truth for desk placement (office solids reuse these centers).
+// Opposite ends of the office floor, between the desk rows in the walk band.
 inline constexpr bn::array<definition, count> definition_table = {
-    definition{bn::fixed_point(-140, -16)},
-    definition{bn::fixed_point(140, -16)},
-    definition{bn::fixed_point(-140, 56)},
-    definition{bn::fixed_point(140, 56)},
+    definition{bn::fixed_point(-200, 20)},
+    definition{bn::fixed_point(200, 20)},
 };
+
+[[nodiscard]] constexpr int target_id(int index)
+{
+    return target_id_base + index;
+}
+
+[[nodiscard]] constexpr bool is_target_id(int id)
+{
+    return id >= target_id_base && id < target_id_base + count;
+}
+
+[[nodiscard]] constexpr int index_from_target(int id)
+{
+    return id - target_id_base;
+}
 
 [[nodiscard]] constexpr bn::fixed_rect solid_box_at(int index)
 {
@@ -66,7 +79,6 @@ inline constexpr bn::array<definition, count> definition_table = {
 
 [[nodiscard]] bn::span<const definition> definitions();
 
-// Four desk collision AABBs (aligned with office solids).
 [[nodiscard]] bn::span<const bn::fixed_rect> solid_boxes();
 
 class entity
@@ -78,22 +90,19 @@ public:
 
     void set_broken(bool broken);
     void set_visual_state(visual_state state);
-    // Soft urgency intensifies broken-PC flash rate (0 = default; no fail/removal).
     void set_urgency(int urgency_level);
     [[nodiscard]] bool is_broken() const;
     [[nodiscard]] visual_state state() const;
 
-    // I-02: show/hide type badge above the desk (graphics_index = badge_* frame).
     void set_type_badge(int graphics_index);
     void clear_type_badge();
 
-    // Desk PC + type badge (office floor hide when in server room).
     void set_visible(bool visible);
 
-    // Advances broken-PC error flash while the desk is broken.
     void update();
 
     [[nodiscard]] int index() const;
+    [[nodiscard]] int ticket_target_id() const;
     [[nodiscard]] bn::fixed_point position() const;
     [[nodiscard]] bn::fixed_rect solid_box() const;
     [[nodiscard]] bn::fixed_rect interact_range() const;
@@ -116,9 +125,6 @@ private:
     void _sync_badge();
     [[nodiscard]] bn::fixed_point _badge_position() const;
 };
-
-// Nearest desk index to point, or -1 if none.
-[[nodiscard]] int nearest_index(const bn::fixed_point& point);
 
 }
 

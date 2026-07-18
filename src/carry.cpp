@@ -15,8 +15,9 @@ namespace carry
 namespace
 {
 
-constexpr int toner_tiles_index = 0;
-constexpr int psu_tiles_index = 1;
+// Must match closet::toner_tiles_index / psu_tiles_index and fault badge art contract.
+constexpr int toner_tiles_index = closet::toner_tiles_index;
+constexpr int psu_tiles_index = closet::psu_tiles_index;
 
 // Above-head offset from player center (16×16 sprite).
 constexpr bn::fixed carry_offset_y = -14;
@@ -39,36 +40,36 @@ constexpr int bob_lut_step = 48;
     }
 }
 
-[[nodiscard]] part other_part(part value)
+[[nodiscard]] part part_for_bin(const closet::bin& supply_bin)
 {
-    switch(value)
-    {
-    case part::toner:
-        return part::psu;
-
-    case part::psu:
-        return part::toner;
-
-    case part::none:
-    default:
-        return part::toner;
-    }
+    return supply_bin.is_psu() ? part::psu : part::toner;
 }
 
-// Empty hands: prefer toner, else PSU, else none (both out of stock).
-[[nodiscard]] part first_available_part()
+[[nodiscard]] closet::bin* nearest_bin_in_range(const bn::fixed_point& player_pos,
+                                               bn::span<closet::bin> bins)
 {
-    if(inventory::has_stock(part::toner))
+    closet::bin* nearest = nullptr;
+    bn::fixed nearest_dist_sq = 0;
+
+    for(closet::bin& supply_bin : bins)
     {
-        return part::toner;
+        if(! supply_bin.in_interact_range(player_pos))
+        {
+            continue;
+        }
+
+        const bn::fixed dx = player_pos.x() - supply_bin.position().x();
+        const bn::fixed dy = player_pos.y() - supply_bin.position().y();
+        const bn::fixed dist_sq = dx * dx + dy * dy;
+
+        if(nearest == nullptr || dist_sq < nearest_dist_sq)
+        {
+            nearest = &supply_bin;
+            nearest_dist_sq = dist_sq;
+        }
     }
 
-    if(inventory::has_stock(part::psu))
-    {
-        return part::psu;
-    }
-
-    return part::none;
+    return nearest;
 }
 
 [[nodiscard]] bn::fixed_point icon_position(const bn::fixed_point& player_pos, int bob_angle)
@@ -117,40 +118,33 @@ void slot::set_camera(const bn::camera_ptr& camera)
     }
 }
 
-void slot::update_at_closet(const bn::fixed_point& player_pos, const closet::entity& storage)
+void slot::update_at_bins(const bn::fixed_point& player_pos, bn::span<closet::bin> bins)
 {
-    if(! storage.in_interact_range(player_pos))
+    closet::bin* supply_bin = nearest_bin_in_range(player_pos, bins);
+
+    if(supply_bin == nullptr)
     {
         return;
     }
 
+    const part bin_part = part_for_bin(*supply_bin);
+
     if(bn::keypad::a_pressed())
     {
-        if(_held == part::none)
+        if(! inventory::has_stock(bin_part))
         {
-            const part take = first_available_part();
-
-            if(take == part::none)
-            {
-                // Both part types at zero stock — pickup blocked.
-                return;
-            }
-
-            _held = take;
-        }
-        else
-        {
-            const part swap_to = other_part(_held);
-
-            if(! inventory::has_stock(swap_to))
-            {
-                // Target type exhausted — keep current part.
-                return;
-            }
-
-            _held = swap_to;
+            supply_bin->flash_deny();
+            return;
         }
 
+        if(_held == bin_part)
+        {
+            // Already carrying this bin's part — no swap/cycle.
+            return;
+        }
+
+        // Empty hands: take this bin's part. Holding the other: swap to this bin.
+        _held = bin_part;
         sfx::play_pickup();
         _sync_icon();
         return;
@@ -158,6 +152,13 @@ void slot::update_at_closet(const bn::fixed_point& player_pos, const closet::ent
 
     if(bn::keypad::b_pressed() && _held != part::none)
     {
+        if(_held != bin_part)
+        {
+            // Return only to the matching bin.
+            supply_bin->flash_deny();
+            return;
+        }
+
         // Return to hands; stock unchanged until install consumes.
         _held = part::none;
         _sync_icon();

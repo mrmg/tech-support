@@ -7,6 +7,7 @@
 
 #include "carry.h"
 #include "desk.h"
+#include "printer.h"
 #include "shift.h"
 
 // Ticket model + spawn curve (reboot, needs-part, cross-room server reset).
@@ -23,6 +24,52 @@ enum class type
     needs_server_reset,
 };
 
+// Where an incident binds in the world. Kind pick and target pick stay separate
+// so computer / printer / global outages cannot be confused (J-02 / J-03 / J-07).
+enum class target_kind
+{
+    computer_desk,
+    printer,
+    global_server,
+};
+
+// Day-gated random pool (J-02). Server outage is never in this pool — Day 4
+// schedules it separately (J-07). Weights are percent points (sum 100).
+namespace director
+{
+    struct pool_weights
+    {
+        int reboot;
+        int toner;
+        int psu;
+
+        [[nodiscard]] constexpr int total() const
+        {
+            return reboot + toner + psu;
+        }
+    };
+
+    // 1-based campaign day → pool weights. Out-of-range clamps like campaign days.
+    [[nodiscard]] pool_weights pool_weights_for_day(int day);
+
+    // Days 1–3 force their teaching kind on the first pool spawn. Day 4 teaching
+    // (global outage) is scripted outside the pool, so this is false there.
+    [[nodiscard]] bool has_pool_teaching_guarantee(int day);
+
+    // Day 4 schedules one office-wide outage outside the random pool (J-07).
+    [[nodiscard]] bool schedules_global_outage(int day);
+
+    // Teaching kind for days with a pool guarantee (reboot / toner / PSU).
+    // Undefined for Day 4 — check has_pool_teaching_guarantee first.
+    [[nodiscard]] type pool_teaching_kind(int day);
+
+    // Map issue type → target class (desk vs printer vs global).
+    [[nodiscard]] target_kind target_kind_for_issue(type issue_type);
+
+    // Deterministic weighted pick from a pool roll in [0, weights.total()).
+    [[nodiscard]] type issue_type_from_pool_roll(const pool_weights& weights, int roll);
+}
+
 // End-of-shift classification only (Phase B). pending until the bell; never mid-shift fail.
 enum class outcome
 {
@@ -33,16 +80,17 @@ enum class outcome
 
 struct instance
 {
-    int desk_id;
+    // Desk index, printer::target_id(i), or global_server_target_id (J-07).
+    int target_id;
     type issue_type;
     int urgency;
     bool open;
 };
 
-// One spawn log row for results UI (desk + issue + ✓/✗ after classify_at_bell).
+// One spawn log row for results UI (target + issue + ✓/✗ after classify_at_bell).
 struct history_entry
 {
-    int desk_id;
+    int target_id;
     type issue_type;
     outcome result;
 };
@@ -59,16 +107,16 @@ namespace urgency
 }
 
 // Spawn timing (tweakable). No tickets at t=0; first spawn after first_spawn_seconds.
-// Day 1 baseline (H-04); live shifts use campaign::day_difficulty (C-03 / campaign.cpp).
+// Day 1 baseline (J-01); live shifts use campaign::day_difficulty (C-03 / campaign.cpp).
 namespace spawn
 {
-    inline constexpr int first_spawn_seconds = 6;
+    inline constexpr int first_spawn_seconds = 5;
 
     // Gap after the first ticket; each later spawn shrinks by interval_shrink_seconds
     // down to min_interval_seconds (gentle pressure curve across the shift).
-    inline constexpr int interval_seconds = 20;
-    inline constexpr int interval_shrink_seconds = 2;
-    inline constexpr int min_interval_seconds = 10;
+    inline constexpr int interval_seconds = 12;
+    inline constexpr int interval_shrink_seconds = 1;
+    inline constexpr int min_interval_seconds = 8;
 
     inline constexpr int first_spawn_frames = first_spawn_seconds * shift::frames_per_second;
     inline constexpr int interval_frames = interval_seconds * shift::frames_per_second;
@@ -99,13 +147,21 @@ namespace spawn
     void tick_rng();
 }
 
-// Max one open ticket per desk.
-inline constexpr int max_open = desk::count;
+// Global outage binds here — not a desk or printer (J-07).
+inline constexpr int global_server_target_id = desk::count + printer::count;
+
+[[nodiscard]] constexpr bool is_global_server_target(int target_id)
+{
+    return target_id == global_server_target_id;
+}
+
+// Max one open ticket per desk/printer, plus one global server outage slot.
+inline constexpr int max_open = desk::count + printer::count + 1;
 
 // Spawn history capacity (covers a full shift even with frequent clears).
 inline constexpr int max_history = 32;
 
-// Short issue line for notepad / results (shared label for a ticket type).
+// Notepad / results issue names: "PC reboot", "Printer toner", "PC PSU", "Server outage".
 [[nodiscard]] bn::string_view issue_label(type issue_type);
 
 // True for needs_toner / needs_psu (hold-to-install consumes required_part).
@@ -133,24 +189,28 @@ public:
     // Tickets cleared via hold-to-reboot this shift (Phase A summary; not a pass gate).
     [[nodiscard]] int fixed_count() const;
     [[nodiscard]] int spawned_count() const;
-    [[nodiscard]] bool desk_has_open_ticket(int desk_id) const;
-    // Issue kind of the open ticket on desk_id, or reboot if none.
-    [[nodiscard]] type issue_type_for_desk(int desk_id) const;
-    // Urgency of the open ticket on desk_id, or 0 if none.
-    [[nodiscard]] int urgency_for_desk(int desk_id) const;
+    // True if target_id (desk or printer) already has an open ticket.
+    [[nodiscard]] bool desk_has_open_ticket(int target_id) const;
+    // Issue kind of the open ticket on target_id, or reboot if none.
+    [[nodiscard]] type issue_type_for_desk(int target_id) const;
+    // Urgency of the open ticket on target_id, or 0 if none.
+    [[nodiscard]] int urgency_for_desk(int target_id) const;
 
     // Spawn log for results UI (outcomes pending until classify_at_bell).
     [[nodiscard]] bn::span<const history_entry> history() const;
     [[nodiscard]] bool is_classified() const;
 
-    // Close/remove the open ticket bound to desk_id (no-op if none). Counts as fixed.
-    void clear_desk(int desk_id);
+    // Close/remove the open ticket bound to target_id (no-op if none). Counts as fixed.
+    void clear_desk(int target_id);
 
-    // Clear every open needs_server_reset ticket (rack complete). Each counts as fixed.
+    // Clear the open global outage (rack complete). Counts as one fixed incident.
     void clear_server_reset_tickets();
 
-    // True if any open ticket is needs_server_reset (used to re-arm the rack).
+    // True if the office-wide server outage is active (used to re-arm the rack).
     [[nodiscard]] bool has_open_server_reset() const;
+
+    // Urgency of the active global outage, or 0 if none (shared desk error flash).
+    [[nodiscard]] int server_outage_urgency() const;
 
     // Shift timer hit zero: pending → failed; already cleared stay fixed. Call once at the bell.
     void classify_at_bell();
@@ -165,15 +225,21 @@ private:
     int _spawned_count;
     int _fixed_count;
     bool _classified;
+    // Day 4: at most one outage spawn per shift (guards duplicates after clear).
+    bool _global_outage_spawned;
 
     // Uniform pick among desks with no open ticket; -1 if none free.
     [[nodiscard]] int _pick_free_desk();
-    // Weighted pick from the allowed issue mix (not a fixed cycle).
+    // Uniform pick among printers with no open ticket; -1 if none free.
+    [[nodiscard]] int _pick_free_printer();
+    // Day-gated teaching guarantee / Day 4 outage, then weighted pool (never server).
     [[nodiscard]] type _pick_issue_type();
+    // Target for a chosen kind (desk / printer / global_server_target_id).
+    [[nodiscard]] int _pick_target_for_issue(type issue_type);
     void _schedule_next_spawn();
     void _try_spawn();
     void _advance_urgency();
-    void _mark_history_fixed(int desk_id);
+    void _mark_history_fixed(int target_id);
 };
 
 }

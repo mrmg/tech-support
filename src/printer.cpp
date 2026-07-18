@@ -1,13 +1,13 @@
-#include "desk.h"
+#include "printer.h"
 
 #include "bn_array.h"
 #include "bn_sprite_tiles_ptr.h"
 
-#include "bn_sprite_items_desk.h"
 #include "bn_sprite_items_part_icon.h"
+#include "bn_sprite_items_printer.h"
 #include "bn_sprite_items_ticket_badge.h"
 
-namespace desk
+namespace printer
 {
 
 namespace
@@ -16,8 +16,6 @@ namespace
 constexpr bn::array<bn::fixed_rect, count> solid_table = {
     solid_box_at(0),
     solid_box_at(1),
-    solid_box_at(2),
-    solid_box_at(3),
 };
 
 constexpr int idle_tiles_index = 0;
@@ -47,9 +45,9 @@ entity::entity(int index) :
     _flash_frame(0),
     _badge_tiles(no_badge_tiles),
     _visible(true),
-    _sprite(bn::sprite_items::desk.create_sprite(definition_table[index].center))
+    _sprite(bn::sprite_items::printer.create_sprite(definition_table[index].center))
 {
-    BN_ASSERT(index >= 0 && index < count, "desk index out of range");
+    BN_ASSERT(index >= 0 && index < count, "printer index out of range");
     _sync_sprite();
 }
 
@@ -97,7 +95,7 @@ void entity::set_urgency(int urgency_level)
 
 void entity::set_type_badge(int graphics_index)
 {
-    BN_ASSERT(graphics_index >= badge_reboot && graphics_index <= badge_server,
+    BN_ASSERT(graphics_index >= desk::badge_reboot && graphics_index <= desk::badge_server,
               "badge graphics_index out of range");
 
     if(_badge_tiles == graphics_index)
@@ -170,7 +168,6 @@ void entity::update()
         _flash_frame = 0;
     }
 
-    // Rebuild tiles at the half-period boundary so the error flash reads clearly.
     if(_flash_frame == 0 || _flash_frame == period / 2)
     {
         _sync_sprite();
@@ -180,6 +177,11 @@ void entity::update()
 int entity::index() const
 {
     return _index;
+}
+
+int entity::ticket_target_id() const
+{
+    return target_id(_index);
 }
 
 bn::fixed_point entity::position() const
@@ -217,7 +219,7 @@ void entity::_sync_sprite()
         tiles_index = flash_on ? broken_flash_tiles_index : broken_tiles_index;
     }
 
-    _sprite.set_tiles(bn::sprite_items::desk.tiles_item().create_tiles(tiles_index));
+    _sprite.set_tiles(bn::sprite_items::printer.tiles_item().create_tiles(tiles_index));
 }
 
 bn::fixed_point entity::_badge_position() const
@@ -241,9 +243,9 @@ void entity::_sync_badge()
     }
 
     const bn::fixed_point pos = _badge_position();
-    // J-04: toner/PSU fault badges reuse part_icon frames (same as bin + carry).
-    const bool part_badge = _badge_tiles == badge_toner || _badge_tiles == badge_psu;
-    const int graphics_index = part_badge ? (_badge_tiles == badge_toner ? 0 : 1) : _badge_tiles;
+    // J-04: toner badge uses part_icon frame 0 (same glyph as toner bin + carry).
+    const bool part_badge = _badge_tiles == badge_toner;
+    const int graphics_index = part_badge ? 0 : _badge_tiles;
 
     if(! _badge)
     {
@@ -274,26 +276,6 @@ void entity::_sync_badge()
         _badge->set_position(pos);
         _badge->set_visible(true);
     }
-}
-
-int nearest_index(const bn::fixed_point& point)
-{
-    int best = -1;
-    bn::fixed best_dist_sq = 0;
-
-    for(int index = 0; index < count; ++index)
-    {
-        const bn::fixed_point delta = definition_table[index].center - point;
-        const bn::fixed dist_sq = delta.x() * delta.x() + delta.y() * delta.y();
-
-        if(best < 0 || dist_sq < best_dist_sq)
-        {
-            best = index;
-            best_dist_sq = dist_sq;
-        }
-    }
-
-    return best;
 }
 
 }
