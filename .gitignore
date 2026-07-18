@@ -1,0 +1,8 @@
+# Build
+build/
+*.gba
+*.elf
+*.sav
+
+# Local loop helper runtime (scripts themselves may be committed)
+.loop-phase-a.sh.pid
