@@ -8,13 +8,14 @@ int main()
 {
     bn::core::init();
 
-    // Fresh boot = new campaign run (Day 1). Title→shift reads campaign::current_day();
-    // returning via B keeps session day for later resume (C-05).
+    // Fresh boot = Day 1. Returning to title via B must NOT reset (C-05 resume).
+    // Explicit new game: title SELECT. Campaign-complete restart: shift results path.
     campaign::reset();
 
     while(true)
     {
         run_title_scene();
+        // Day intro runs inside shift_scene before each shift.
         run_shift_scene();
     }
 }

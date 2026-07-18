@@ -14,6 +14,7 @@
 #include "camera_follow.h"
 #include "campaign.h"
 #include "common_variable_8x16_sprite_font.h"
+#include "day_intro_scene.h"
 #include "desk.h"
 #include "fix_interaction.h"
 #include "notepad.h"
@@ -254,6 +255,9 @@ void run_shift_scene()
 {
     while(true)
     {
+        // C-05: brief Day N card before every shift (title start, retry, next day).
+        run_day_intro_scene();
+
         // Scope ends the office so results are a clean screen.
         const shift_summary summary = play_one_shift();
         const shift_end_choice choice = show_shift_over_screen(summary);
@@ -268,6 +272,7 @@ void run_shift_scene()
             break;
 
         case shift_end_choice::title:
+            // Session day kept — title A resumes without campaign::reset().
             return;
 
         default:

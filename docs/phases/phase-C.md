@@ -66,11 +66,12 @@ Linear **days** (Day 1, Day 2, …). Each day is one **shift** (plus retries). R
 - **mGBA:** Fail → still Day N; Pass → Day N+1 on next shift; last day pass → complete message.
 - **Implemented:** `shift_scene::apply_shift_outcome` — fail leaves day; pass calls `campaign::advance()`; final-day pass shows “Campaign complete” then `campaign::reset()` (A → Day 1 shift, B → title Day 1). Results notepad header **Day N**; A prompt Retry / Next day / Restart.
 
-### - [ ] C-05 — Day intro / title campaign flow
+### - [x] C-05 — Day intro / title campaign flow
 
 - **Done when:** Starting a shift shows a brief **Day N** intro (or title shows day); new game resets to Day 1; returning from title continues current day if mid-campaign (session state).
 - **Notes:** Keep intro short (Press A). No save file required.
 - **mGBA:** Boot→A→ Day 1 intro→shift; after pass→ Day 2 intro; B to title→A resumes current day.
+- **Implemented:** `day_intro_scene` (“Day N” + Press A) before every shift. Title shows session day; A continues without reset; SELECT = new game (`campaign::reset()`). Boot resets once; B→title keeps day.
 
 ### - [ ] C-06 — Phase C pass (integration)
 
