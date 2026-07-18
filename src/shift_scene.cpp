@@ -13,6 +13,7 @@
 
 #include "camera_follow.h"
 #include "campaign.h"
+#include "carry.h"
 #include "closet.h"
 #include "common_variable_8x16_sprite_font.h"
 #include "day_intro_scene.h"
@@ -162,6 +163,9 @@ shift_summary play_one_shift()
     closet::entity storage_closet;
     storage_closet.set_camera(camera);
 
+    // D-02: one carried part (closet A pick/replace, B return; HUD icon).
+    carry::slot carried;
+
     // C-03: day index selects spawn + shift length (Day 1 == Phase A baseline).
     const campaign::day_difficulty day = campaign::difficulty_for_day(campaign::current_day());
     const ticket::spawn::params spawn_params = ticket::spawn::from_seconds(
@@ -211,9 +215,14 @@ shift_summary play_one_shift()
         {
             walk_player.update();
             tickets.update();
+
+            // Closet pickup before hold-to-reboot so A pressed at cupboard fills carry.
+            carried.update_at_closet(walk_player.position(), storage_closet);
             reboot_fix.update(walk_player.position(), tickets, camera);
             --remaining_frames;
         }
+
+        carried.update_hud();
 
         for(int index = 0; index < desk::count; ++index)
         {

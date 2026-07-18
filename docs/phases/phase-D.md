@@ -34,10 +34,10 @@ One carried item at a time. **Same-map storage closet** (cupboard on the office 
 - **Notes:** Same-map only. Placeholder art OK.
 - **mGBA:** See closet; walk to it; blocked by its solid.
 
-### - [ ] D-02 — Carry one part
+### - [x] D-02 — Carry one part
 
 - **Done when:** At closet, press A to pick up a part (toner or PSU); HUD/sprite shows carried item; only one at a time (pickup replaces or refuses if full — pick one rule and document).
-- **Notes:** Infinite stock at closet for Phase D. B or second A at closet can return/swap if useful.
+- **Notes:** Infinite stock at closet for Phase D. **Pickup rule: replace** — A in closet range: empty → toner; already holding → swap toner ↔ PSU (never two slots). B in closet range returns the part (clears carry). HUD: `part_icon` bottom-right.
 - **mGBA:** Pick up part; see carry indicator; cannot hold two different parts at once.
 
 ### - [ ] D-03 — Needs-part ticket type
